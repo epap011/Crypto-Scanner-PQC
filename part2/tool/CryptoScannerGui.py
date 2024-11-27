@@ -12,19 +12,36 @@ class CryptoScannerGUI:
 
     def setup_ui(self):
         self.root.title("Cryptographic Scanner")
+        self.root.config(bg="#2E2E2E")
+        self.root.geometry("600x300")
+        self.root.minsize(900, 400)
 
-        tk.Label(self.root, text="Directory to Scan:").grid(row=0, column=0, padx=10, pady=10)
-        self.directory_entry = tk.Entry(self.root, width=50)
-        self.directory_entry.grid(row=0, column=1, padx=10, pady=10)
+        title_label = tk.Label(self.root, text="Cryptographic Scanner", font=("Courier", 20, "bold"), fg="white", bg="#2E2E2E")
+        title_label.grid(row=0, column=0, columnspan=3, pady=20)
 
-        browse_button = tk.Button(self.root, text="Browse", command=self.browse_directory)
-        browse_button.grid(row=0, column=2, padx=10, pady=10)
+        dir_label = tk.Label(self.root, text="Directory to Scan:", font=("Courier", 12), fg="white", bg="#2E2E2E")
+        dir_label.grid(row=1, column=0, padx=10, pady=10, sticky="e")
 
-        scan_button = tk.Button(self.root, text="Run Scan", command=self.run_scan)
-        scan_button.grid(row=1, column=0, columnspan=3, pady=10)
+        self.directory_entry = tk.Entry(self.root, width=50, font=("Courier", 12), fg="black", bg="#C0C0C0", bd=0, relief="flat")
+        self.directory_entry.grid(row=1, column=1, padx=10, pady=10, ipadx=5, ipady=5)
 
-        view_button = tk.Button(self.root, text="View Results", command=self.view_results)
-        view_button.grid(row=2, column=0, columnspan=3, pady=10)
+        browse_button = tk.Button(self.root, text="Browse", font=("Courier", 12), fg="white", bg="#00B140", activebackground="#4CAF50", activeforeground="white", bd=0, relief="flat", command=self.browse_directory)
+        browse_button.grid(row=1, column=2, padx=10, pady=10, ipadx=5, ipady=5)
+
+        scan_button = tk.Button(self.root, text="Run Scan", font=("Courier", 12, "bold"), fg="white", bg="#FF5722", activebackground="#FF7043", activeforeground="white", bd=0, relief="flat", command=self.run_scan)
+        view_button = tk.Button(self.root, text="View Results", font=("Courier", 12), fg="white", bg="#3F51B5", activebackground="#5C6BC0", activeforeground="white", bd=0, relief="flat", command=self.view_results)
+
+        scan_button.grid(row=2, column=0, padx=20, pady=20, ipadx=20, ipady=10)
+        view_button.grid(row=2, column=1, padx=20, pady=20, ipadx=20, ipady=10)
+
+        self.status_label = tk.Label(self.root, text="Status: Ready", font=("Courier", 10), fg="white", bg="#2E2E2E")
+        self.status_label.grid(row=3, column=0, columnspan=3, pady=10)
+
+        for row in range(4):
+            self.root.grid_rowconfigure(row, weight=1, minsize=50)
+
+        for col in range(3):
+            self.root.grid_columnconfigure(col, weight=1, minsize=150)
 
     def browse_directory(self):
         folder_selected = filedialog.askdirectory()

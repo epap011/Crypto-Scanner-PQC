@@ -141,36 +141,48 @@ class CryptoScannerGUI:
     
     def view_results(self):
         rows = self.db_manager.fetch_all_findings()
-
         if not rows:
             messagebox.showinfo("No Results", "No findings to display.")
             return
 
         result_window = tk.Toplevel(self.root)
         result_window.title("Scan Results")
-
-        # Create Treeview widget
         tree = ttk.Treeview(
             result_window, 
             columns=("File", "Primitive", "Severity", "Issue"), 
             show='headings'
         )
-        tree.heading("File", text="File")
-        tree.heading("Primitive", text="Primitive")
-        tree.heading("Severity", text="Severity")
-        tree.heading("Issue", text="Issue")
+        tree.heading("File", text="File", command=lambda: self.sort_tree(tree, rows, column=1))
+        tree.heading("Primitive", text="Primitive", command=lambda: self.sort_tree(tree, rows, column=2))
+        tree.heading("Severity", text="Severity", command=lambda: self.sort_tree(tree, rows, column=5, sort_key=self.severity_sort_key))
+        tree.heading("Issue", text="Issue", command=lambda: self.sort_tree(tree, rows, column=4))
         tree.pack(fill=tk.BOTH, expand=True)
 
-        # Define severity-based row styles
-        tree.tag_configure('Critical', background='#FFCCCC')  # Light red for Critical
-        tree.tag_configure('High', background='#FFD580')      # Light orange for High
-        tree.tag_configure('Medium', background='#FFFFCC')    # Light yellow for Medium
-        tree.tag_configure('Low', background='#CCFFCC')       # Light green for Low
+        tree.tag_configure('Critical', background='#FFCCCC')
+        tree.tag_configure('High', background='#FFD580')
+        tree.tag_configure('Medium', background='#FFFFCC')
+        tree.tag_configure('Low', background='#CCFFCC')
+        self.populate_tree(tree, rows)
 
-        # Populate Treeview with findings
-        for row in rows:
-            severity = row[5]  # Assuming 'severity' is at index 5 in the database row
-            tag = severity  # Use severity as tag name
-            tree.insert("", tk.END, values=(row[1], row[2], row[5], row[4]), tags=(tag,))
+    def populate_tree(self, treeview, data):
+        """Clear and repopulate the tree with sorted data."""
+        for item in treeview.get_children():
+            treeview.delete(item)
+        for row in data:
+            severity = row[5]
+            tag = severity
+            treeview.insert("", tk.END, values=(row[1], row[2], row[5], row[4]), tags=(tag,))
 
+    def sort_tree(self, treeview, data, column, sort_key=None):
+        """Sort the tree data by the given column."""
+        sort_key = sort_key or (lambda x: x[column])
+        ascending = getattr(treeview, "sort_ascending", True)
+        data.sort(key=lambda x: sort_key(x[column]), reverse=not ascending)
+        setattr(treeview, "sort_ascending", not ascending)
+        self.populate_tree(treeview, data)
+
+    def severity_sort_key(self, severity):
+        """Map severity levels to numeric values for sorting."""
+        order = {"Critical": 4, "High": 3, "Medium": 2, "Low": 1}
+        return order.get(severity, 0)
 

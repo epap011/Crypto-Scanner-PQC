@@ -1,4 +1,3 @@
-#CryptoAnalyzer.py
 import os
 import re
 import ast
@@ -6,10 +5,10 @@ import logging
 
 class CryptoAnalyzer:
     def __init__(self, patterns, rules, deprecated_apis, mosca_params):
-        self.patterns        = patterns
-        self.rules           = rules
+        self.patterns = patterns
+        self.rules = rules
         self.deprecated_apis = deprecated_apis
-        self.mosca_params    = mosca_params
+        self.mosca_params = mosca_params
 
     def mosca_inequality(self):
         """Evaluate if immediate migration is needed using Mosca's Inequality."""
@@ -17,40 +16,104 @@ class CryptoAnalyzer:
         return (X + Y) >= Z
 
     def scan_python_ast(self, file_path):
-        """Scan a Python file using its AST for specific API calls."""
+        """Scan a Python file using its AST for specific vulnerabilities."""
         results = []
         try:
             with open(file_path, 'r') as file:
                 tree = ast.parse(file.read(), filename=file_path)
                 for node in ast.walk(tree):
-                    # Check for deprecated APIs in function/method calls
-                    if isinstance(node, ast.Attribute):
-                        full_attr = f"{getattr(node.value, 'id', '')}.{node.attr}"  # Build full attribute name
-                        if full_attr in self.deprecated_apis:
-                            severity, issue, suggestion = self.deprecated_apis[full_attr]
-                            results.append({
-                                'file': file_path,
-                                'primitive': full_attr,
-                                'parameters': None,
-                                'issue': issue,
-                                'severity': severity,
-                                'suggestion': suggestion,
-                                'quantum_vulnerable': False
-                            })
-                    # Detect weak PRNG usage
-                    if isinstance(node, ast.Name) and node.id == 'random':
-                        results.append({
-                            'file': file_path,
-                            'primitive': 'Weak PRNG',
-                            'parameters': None,
-                            'issue': 'Weak PRNG detected.',
-                            'severity': 'High',
-                            'suggestion': 'Replace with `secrets` module.',
-                            'quantum_vulnerable': False
-                        })
+                    # Detect key size assignments
+                    if isinstance(node, ast.Assign):
+                        for target in node.targets:
+                            if isinstance(target, ast.Name) and isinstance(node.value, ast.Constant):
+                                if target.id.lower() in ['key_size', 'rsa_key_size', 'ecc_key_size']:
+                                    key_size = node.value.value
+                                    if isinstance(key_size, int):
+                                        if key_size < 2048:  # Example for RSA quantum vulnerability
+                                            results.append({
+                                                'file': file_path,
+                                                'primitive': 'RSA',
+                                                'parameters': f'key_size={key_size}',
+                                                'issue': 'RSA key size is quantum-vulnerable.',
+                                                'severity': 'Critical' if key_size < 2048 else 'High',
+                                                'suggestion': 'Use RSA key size >= 3072 or PQC alternatives.',
+                                                'quantum_vulnerable': True
+                                            })
+                    # Detect key size passed as arguments in function calls
+                    if isinstance(node, ast.Call):
+                        for keyword in node.keywords:
+                            if keyword.arg in ['key_size', 'modulus_size']:
+                                key_size = getattr(keyword.value, 'value', None)
+                                if isinstance(key_size, int) and key_size < 2048:
+                                    results.append({
+                                        'file': file_path,
+                                        'primitive': 'RSA',
+                                        'parameters': f'key_size={key_size}',
+                                        'issue': 'RSA key size is quantum-vulnerable.',
+                                        'severity': 'Critical' if key_size < 2048 else 'High',
+                                        'suggestion': 'Use RSA key size >= 3072 or PQC alternatives.',
+                                        'quantum_vulnerable': True
+                                    })
+
+                    # Detect static IVs in assignments
+                    if isinstance(node, ast.Assign):
+                        for target in node.targets:
+                            if isinstance(target, ast.Name) and isinstance(node.value, ast.Constant):
+                                if target.id.lower() in ['iv', 'initialization_vector']:
+                                    iv_value = node.value.value
+                                    if isinstance(iv_value, str) and iv_value.startswith("0x"):
+                                        results.append({
+                                            'file': file_path,
+                                            'primitive': 'Static_IV',
+                                            'parameters': f'IV={iv_value}',
+                                            'issue': 'Static IV detected; this is insecure.',
+                                            'severity': 'Critical',
+                                            'suggestion': 'Use a randomized IV for each encryption operation.',
+                                            'quantum_vulnerable': False
+                                        })
+
+                    # Detect hardcoded keys in assignments
+                    if isinstance(node, ast.Assign):
+                        for target in node.targets:
+                            if isinstance(target, ast.Name) and isinstance(node.value, ast.Constant):
+                                if target.id.lower() in ['key', 'secret_key', 'aes_key']:
+                                    key_value = node.value.value
+                                    if isinstance(key_value, str) and len(key_value) >= 32:  # Assuming long keys
+                                        results.append({
+                                            'file': file_path,
+                                            'primitive': 'Hardcoded Key',
+                                            'parameters': f'Key={key_value}',
+                                            'issue': 'Hardcoded cryptographic key detected.',
+                                            'severity': 'Critical',
+                                            'suggestion': 'Avoid embedding keys directly in code.',
+                                            'quantum_vulnerable': False
+                                        })
+
+                    # Detect concatenated values (e.g., IV or Key)
+                    if isinstance(node, ast.Assign):
+                        for target in node.targets:
+                            if isinstance(target, ast.Name) and isinstance(node.value, ast.BinOp):
+                                if target.id.lower() in ['iv', 'key']:
+                                    concat_value = self._resolve_concat(node.value)
+                                    if target.id.lower() == 'iv' and concat_value.startswith("0x"):
+                                        results.append({
+                                            'file': file_path,
+                                            'primitive': 'Static_IV',
+                                            'parameters': f'IV={concat_value}',
+                                            'issue': 'Static IV detected in concatenation; this is insecure.',
+                                            'severity': 'Critical',
+                                            'suggestion': 'Use a randomized IV for each encryption operation.',
+                                            'quantum_vulnerable': False
+                                        })
         except Exception as e:
             logging.error(f"Error parsing AST for file {file_path}: {e}")
         return results
+
+    def _resolve_concat(self, bin_op_node):
+        """Resolve concatenated string values in AST BinOp nodes."""
+        if isinstance(bin_op_node.left, ast.Constant) and isinstance(bin_op_node.right, ast.Constant):
+            return f"{bin_op_node.left.value}{bin_op_node.right.value}"
+        return "Unknown"
 
     def scan_file(self, file_path):
         """Scan a single file for cryptographic issues."""
@@ -80,7 +143,7 @@ class CryptoAnalyzer:
                         })
         except Exception as e:
             logging.error(f"Error reading file {file_path}: {e}")
-        
+
         # Use AST-based scanning
         results.extend(self.scan_python_ast(file_path))
         return results

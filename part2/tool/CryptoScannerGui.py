@@ -1,3 +1,4 @@
+#CryptoScannerGui.py
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
@@ -16,25 +17,99 @@ class CryptoScannerGUI:
         self.root.geometry("600x300")
         self.root.minsize(900, 400)
 
-        title_label = tk.Label(self.root, text="Cryptographic Scanner", font=("Courier", 20, "bold"), fg="white", bg="#2E2E2E")
+        title_label = tk.Label(
+            self.root, 
+            text="Cryptographic Scanner", 
+            font=("Courier", 20, "bold"), 
+            fg="white", 
+            bg="#2E2E2E"
+        )
         title_label.grid(row=0, column=0, columnspan=3, pady=20)
 
-        dir_label = tk.Label(self.root, text="Directory to Scan:", font=("Courier", 12), fg="white", bg="#2E2E2E")
+        dir_label = tk.Label(
+            self.root, 
+            text="Directory to Scan:", 
+            font=("Courier", 12), 
+            fg="white", 
+            bg="#2E2E2E"
+        )
         dir_label.grid(row=1, column=0, padx=10, pady=10, sticky="e")
 
-        self.directory_entry = tk.Entry(self.root, width=50, font=("Courier", 12), fg="black", bg="#C0C0C0", bd=0, relief="flat")
+        self.directory_entry = tk.Entry(
+            self.root, 
+            width=50, 
+            font=("Courier", 12), 
+            fg="black", 
+            bg="#C0C0C0", 
+            bd=0, 
+            relief="flat"
+        )
         self.directory_entry.grid(row=1, column=1, padx=10, pady=10, ipadx=5, ipady=5)
 
-        browse_button = tk.Button(self.root, text="Browse", font=("Courier", 12), fg="white", bg="#00B140", activebackground="#4CAF50", activeforeground="white", bd=0, relief="flat", command=self.browse_directory)
+        browse_button = tk.Button(
+            self.root, 
+            text="Browse", 
+            font=("Courier", 12), 
+            fg="white", 
+            bg="#00B140", 
+            activebackground="#4CAF50", 
+            activeforeground="white", 
+            bd=0, 
+            relief="flat", 
+            command=self.browse_directory
+        )
         browse_button.grid(row=1, column=2, padx=10, pady=10, ipadx=5, ipady=5)
 
-        scan_button = tk.Button(self.root, text="Run Scan", font=("Courier", 12, "bold"), fg="white", bg="#FF5722", activebackground="#FF7043", activeforeground="white", bd=0, relief="flat", command=self.run_scan)
-        view_button = tk.Button(self.root, text="View Results", font=("Courier", 12), fg="white", bg="#3F51B5", activebackground="#5C6BC0", activeforeground="white", bd=0, relief="flat", command=self.view_results)
-
+        # Align buttons on the same row (row=2)
+        scan_button = tk.Button(
+            self.root, 
+            text="Run Scan", 
+            font=("Courier", 12, "bold"), 
+            fg="white", 
+            bg="#FF5722", 
+            activebackground="#FF7043", 
+            activeforeground="white", 
+            bd=0, 
+            relief="flat", 
+            command=self.run_scan
+        )
         scan_button.grid(row=2, column=0, padx=20, pady=20, ipadx=20, ipady=10)
+
+        view_button = tk.Button(
+            self.root, 
+            text="View Results", 
+            font=("Courier", 12), 
+            fg="white", 
+            bg="#3F51B5", 
+            activebackground="#5C6BC0", 
+            activeforeground="white", 
+            bd=0, 
+            relief="flat", 
+            command=self.view_results
+        )
         view_button.grid(row=2, column=1, padx=20, pady=20, ipadx=20, ipady=10)
 
-        self.status_label = tk.Label(self.root, text="Status: Ready", font=("Courier", 10), fg="white", bg="#2E2E2E")
+        export_button = tk.Button(
+            self.root, 
+            text="Export to CSV", 
+            font=("Courier", 12), 
+            fg="white", 
+            bg="#FF9800", 
+            activebackground="#FFC107", 
+            activeforeground="white", 
+            bd=0, 
+            relief="flat", 
+            command=self.export_to_csv
+        )
+        export_button.grid(row=2, column=2, padx=20, pady=20, ipadx=20, ipady=10)
+
+        self.status_label = tk.Label(
+            self.root, 
+            text="Status: Ready", 
+            font=("Courier", 10), 
+            fg="white", 
+            bg="#2E2E2E"
+        )
         self.status_label.grid(row=3, column=0, columnspan=3, pady=10)
 
         for row in range(4):
@@ -61,16 +136,41 @@ class CryptoScannerGUI:
 
         messagebox.showinfo("Scan Complete", "Scan completed. Findings saved to the database.")
 
+    def export_to_csv(self):
+        self.db_manager.export_findings_to_csv()
+    
     def view_results(self):
         rows = self.db_manager.fetch_all_findings()
 
+        if not rows:
+            messagebox.showinfo("No Results", "No findings to display.")
+            return
+
         result_window = tk.Toplevel(self.root)
         result_window.title("Scan Results")
-        tree = ttk.Treeview(result_window, columns=("File", "Primitive", "Severity", "Issue"), show='headings')
+
+        # Create Treeview widget
+        tree = ttk.Treeview(
+            result_window, 
+            columns=("File", "Primitive", "Severity", "Issue"), 
+            show='headings'
+        )
         tree.heading("File", text="File")
         tree.heading("Primitive", text="Primitive")
         tree.heading("Severity", text="Severity")
         tree.heading("Issue", text="Issue")
         tree.pack(fill=tk.BOTH, expand=True)
+
+        # Define severity-based row styles
+        tree.tag_configure('Critical', background='#FFCCCC')  # Light red for Critical
+        tree.tag_configure('High', background='#FFD580')      # Light orange for High
+        tree.tag_configure('Medium', background='#FFFFCC')    # Light yellow for Medium
+        tree.tag_configure('Low', background='#CCFFCC')       # Light green for Low
+
+        # Populate Treeview with findings
         for row in rows:
-            tree.insert("", tk.END, values=(row[1], row[2], row[5], row[4]))
+            severity = row[5]  # Assuming 'severity' is at index 5 in the database row
+            tag = severity  # Use severity as tag name
+            tree.insert("", tk.END, values=(row[1], row[2], row[5], row[4]), tags=(tag,))
+
+

@@ -1,3 +1,4 @@
+#main.py
 from CryptoScannerGui import CryptoScannerGUI
 from DatabaseManager import DatabaseManager
 from CryptoAnalyzer import CryptoAnalyzer

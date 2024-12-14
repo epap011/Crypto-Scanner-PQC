@@ -1,3 +1,4 @@
+#CryptoAnalyzer.py
 import os
 import re
 import ast
@@ -11,6 +12,7 @@ class CryptoAnalyzer:
         self.mosca_params    = mosca_params
 
     def mosca_inequality(self):
+        """Evaluate if immediate migration is needed using Mosca's Inequality."""
         X, Y, Z = self.mosca_params
         return (X + Y) >= Z
 

@@ -1,5 +1,7 @@
+#DatabaseManager.py
 import sqlite3
-
+import csv
+from tkinter import filedialog, messagebox
 
 class DatabaseManager:
     def __init__(self, db_name="crypto_findings.db"):
@@ -49,3 +51,30 @@ class DatabaseManager:
         rows = cursor.fetchall()
         conn.close()
         return rows
+
+    def export_findings_to_csv(self):
+        """Export all findings to a CSV file."""
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM findings")
+        rows = cursor.fetchall()
+        conn.close()
+
+        if not rows:
+            messagebox.showinfo("No Data", "No findings to export.")
+            return
+
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv")],
+            title="Save Findings as CSV"
+        )
+        if file_path:
+            with open(file_path, mode='w', newline='', encoding='utf-8') as file:
+                writer = csv.writer(file)
+                writer.writerow([
+                    "ID", "File", "Primitive", "Parameters",
+                    "Issue", "Severity", "Suggestion", "Quantum Vulnerable", "Mosca Urgent"
+                ])
+                writer.writerows(rows)
+            messagebox.showinfo("Export Complete", f"Findings exported to {file_path}.")

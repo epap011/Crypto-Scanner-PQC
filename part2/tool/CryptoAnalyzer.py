@@ -40,6 +40,7 @@ class CryptoAnalyzer:
                                                 'suggestion': 'Use RSA key size >= 3072 or PQC alternatives.',
                                                 'quantum_vulnerable': True
                                             })
+
                     # Detect key size passed as arguments in function calls
                     if isinstance(node, ast.Call):
                         for keyword in node.keywords:
@@ -106,6 +107,55 @@ class CryptoAnalyzer:
                                             'suggestion': 'Use a randomized IV for each encryption operation.',
                                             'quantum_vulnerable': False
                                         })
+
+                    # Detect Argon2 weak parameters
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                        if node.func.attr == 'PasswordHasher':
+                            arg_map = {kw.arg: getattr(kw.value, 'value', None) for kw in node.keywords}
+                            time_cost = arg_map.get('time_cost', 1)
+                            memory_cost = arg_map.get('memory_cost', 1024)
+                            parallelism = arg_map.get('parallelism', 1)
+                            if time_cost < 2 or memory_cost < 65536 or parallelism < 2:
+                                results.append({
+                                    'file': file_path,
+                                    'primitive': 'Argon2',
+                                    'parameters': f'time_cost={time_cost}, memory_cost={memory_cost}, parallelism={parallelism}',
+                                    'issue': 'Weak Argon2 parameters.',
+                                    'severity': 'Critical',
+                                    'suggestion': 'Use time_cost >= 2, memory_cost >= 65536, parallelism >= 2.',
+                                    'quantum_vulnerable': False
+                                })
+
+                    # Detect bcrypt weak rounds
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                        if node.func.attr == 'gensalt':
+                            for keyword in node.keywords:
+                                if keyword.arg == 'rounds':
+                                    rounds = getattr(keyword.value, 'value', None)
+                                    if rounds and rounds < 12:
+                                        results.append({
+                                            'file': file_path,
+                                            'primitive': 'bcrypt',
+                                            'parameters': f'rounds={rounds}',
+                                            'issue': 'Weak bcrypt rounds.',
+                                            'severity': 'Critical',
+                                            'suggestion': 'Use bcrypt.gensalt(rounds=12) or higher.',
+                                            'quantum_vulnerable': False
+                                        })
+
+                    # Detect missing GCM tag verification
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                        if node.func.attr == 'decrypt' and 'MODE_GCM' in ast.dump(node):
+                            results.append({
+                                'file': file_path,
+                                'primitive': 'AES',
+                                'parameters': 'MODE_GCM',
+                                'issue': 'Missing GCM authentication tag verification.',
+                                'severity': 'Critical',
+                                'suggestion': 'Ensure authentication tag is verified during decryption.',
+                                'quantum_vulnerable': False
+                            })
+
         except Exception as e:
             logging.error(f"Error parsing AST for file {file_path}: {e}")
         return results

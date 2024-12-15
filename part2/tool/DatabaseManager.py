@@ -22,27 +22,35 @@ class DatabaseManager:
                 suggestion TEXT,
                 quantum_vulnerable BOOLEAN,
                 mosca_urgent BOOLEAN,
-                UNIQUE(file, primitive, parameters)
+                UNIQUE(file, primitive, parameters)  -- Add UNIQUE constraint here
             )
         """)
         conn.commit()
         conn.close()
 
+
     def save_findings(self, findings):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         for finding in findings:
-            cursor.execute("""
-                INSERT OR IGNORE INTO findings 
-                (file, primitive, parameters, issue, severity, suggestion, quantum_vulnerable, mosca_urgent)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                finding['file'], finding['primitive'], finding['parameters'],
-                finding['issue'], finding['severity'], finding['suggestion'],
-                finding['quantum_vulnerable'], finding['mosca_urgent']
-            ))
+            # Normalize parameters to an empty string if it is None
+            parameters = finding['parameters'] if finding['parameters'] else ""
+            try:
+                cursor.execute("""
+                    INSERT OR IGNORE INTO findings 
+                    (file, primitive, parameters, issue, severity, suggestion, quantum_vulnerable, mosca_urgent)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    finding['file'], finding['primitive'], parameters,
+                    finding['issue'], finding['severity'], finding['suggestion'],
+                    finding['quantum_vulnerable'], finding['mosca_urgent']
+                ))
+            except sqlite3.IntegrityError:
+                logging.warning(f"Duplicate finding detected: {finding}")
         conn.commit()
         conn.close()
+
+
 
     def fetch_all_findings(self):
         conn = sqlite3.connect(self.db_name)

@@ -48,6 +48,28 @@ patterns = {
     'Hardcoded Key': r'([a-fA-F0-9]{32,})|([\"\']{5,})',  # Detect long hex or string constants
     'Weak PRNG': r'\brandom\\.(random|randint|choice|shuffle|uniform)\b',
     'Cryptography Library': r'\bfrom\s+cryptography|import\s+cryptography\b',
+
+
+    # Argon2 Weak Parameters
+    'Argon2_WeakParams': r'PasswordHasher\(time_cost=(\d+), memory_cost=(\d+), parallelism=(\d+)\)',
+    # bcrypt Weak Rounds
+    'bcrypt_weak_rounds': r'bcrypt\.gensalt\(rounds=(\d+)\)',
+    # Deprecated ECC Curves
+    'ECC_DeprecatedCurve': r'SECP(?:112|128|160|192|224)R1',
+    # Hardcoded Usernames
+    'Hardcoded_Credentials': r'USERNAME\s*=\s*[\'\"](.*?)[\'\"]',
+    # Reuse of Key Material in KDFs
+    'KeyReuse_KDF': r'HKDF\(.*?\.derive\((.*?)\)',
+    # Missing Salt in Password Hashing
+    'PasswordHash_NoSalt': r'hashlib\.\w+\(.*?password\)',
+    # Weak PRNG for Key Generation
+    'Weak_PRNG_KeyGen': r'random\.\w+\(',
+    # Missing GCM Tag Verification
+    'GCM_NoTagCheck': r'AES\.new\(.*?MODE_GCM.*?\).decrypt\(',
+    # Weak Blowfish Key
+    'Blowfish_WeakKey': r'Blowfish\.new\((.*?)\)',
+    # Weak DH Generator
+    'DH_WeakGenerator': r'generate_parameters\(generator=(\d+)',
 }
 
 # Define risk assessment rules and suggestions
@@ -100,6 +122,36 @@ rules = {
     'Hardcoded Key': ('Critical', 'Hardcoded cryptographic key detected.', 'Avoid embedding keys directly in code.'),
     'Weak PRNG': ('High', 'Weak PRNG detected; use `secrets` module instead.', 'Replace with `secrets` module.'),
     'Cryptography Library': ('Medium', 'Usage of cryptography library detected. Review its usage for secure practices.', 'Ensure correct key management and secure algorithm selection.'),
+
+
+
+    # Weak Argon2 Parameters
+    'Argon2_WeakParams': lambda params: (
+        ('Critical', f'Weak Argon2 parameters: {params}', 'Use time_cost >= 2, memory_cost >= 65536, and parallelism >= 2.')
+        if int(params['time_cost']) < 2 or int(params['memory_cost']) < 65536 or int(params['parallelism']) < 2
+        else ('Low', 'Argon2 parameters are secure.', 'No action required.')
+    ),
+    # Weak bcrypt Rounds
+    'bcrypt_weak_rounds': lambda rounds: (
+        ('Critical', f'Weak bcrypt rounds: {rounds}', 'Use bcrypt.gensalt(rounds=12) or higher.')
+        if int(rounds) < 12 else ('Low', 'bcrypt rounds are sufficient.', 'No action required.')
+    ),
+    # Deprecated ECC Curves
+    'ECC_DeprecatedCurve': ('Critical', 'Deprecated ECC curve detected.', 'Use curves like SECP256R1, SECP384R1, or X25519.'),
+    # Hardcoded Usernames
+    'Hardcoded_Credentials': ('Critical', 'Hardcoded credentials detected.', 'Avoid embedding usernames or passwords in code. Use environment variables.'),
+    # Key Material Reuse in KDFs
+    'KeyReuse_KDF': ('Critical', 'Key material reused in KDF derivation.', 'Avoid reusing key material. Use unique salts and diversify derivation inputs.'),
+    # Missing Salt in Password Hashing
+    'PasswordHash_NoSalt': ('Critical', 'Password hashing without salt.', 'Use a unique, random salt for each password.'),
+    # Weak PRNG for Key Generation
+    'Weak_PRNG_KeyGen': ('Critical', 'Weak PRNG detected for key generation.', 'Use the `secrets` module or a cryptographically secure PRNG.'),
+    # Missing GCM Tag Verification
+    'GCM_NoTagCheck': ('Critical', 'Missing GCM authentication tag verification.', 'Ensure authentication tag is verified during decryption.'),
+    # Weak Blowfish Keys
+    'Blowfish_WeakKey': ('Critical', 'Weak Blowfish key detected.', 'Use a Blowfish key of at least 128 bits or switch to AES.'),
+    # Weak DH Generator
+    'DH_WeakGenerator': ('Critical', 'Weak Diffie-Hellman generator detected.', 'Use generator=2 or higher. Avoid using 1 or (p-1).'),
 }
 
 # Define deprecated APIs

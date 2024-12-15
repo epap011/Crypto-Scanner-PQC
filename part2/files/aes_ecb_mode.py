@@ -1,3 +1,4 @@
+#aes_ecb_mode.py
 from Crypto.Cipher import AES
 
 key = b'16bytekey1234567'

@@ -1,3 +1,4 @@
+#insecure_des_usage.py
 from Crypto.Cipher import DES
 
 key = b'8bytekey'

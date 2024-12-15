@@ -1,3 +1,4 @@
+#test_hardcoded_keys.py
 # Hardcoded symmetric key
 secret_key = "aabbccddeeff00112233445566778899"  # Hex-encoded key
 

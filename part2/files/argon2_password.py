@@ -1,3 +1,4 @@
+#argon2_password.py
 from argon2 import PasswordHasher
 
 ph = PasswordHasher()

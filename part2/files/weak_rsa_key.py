@@ -1,3 +1,4 @@
+#weak_rsa_key.py
 from Crypto.PublicKey import RSA
 
 key = RSA.generate(1024)

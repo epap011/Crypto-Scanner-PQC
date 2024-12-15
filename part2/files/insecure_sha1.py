@@ -1,3 +1,4 @@
+#insecure_sha1.py
 import hashlib
 
 data = b"important data"

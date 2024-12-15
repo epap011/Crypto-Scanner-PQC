@@ -1,4 +1,4 @@
-#DatabaseManager.py
+# DatabaseManager.py
 import sqlite3
 import csv
 from tkinter import filedialog, messagebox

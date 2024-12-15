@@ -1,4 +1,4 @@
-#CryptoScannerGui.py
+# CryptoScannerGui.py
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
@@ -129,12 +129,45 @@ class CryptoScannerGUI:
         if not directory:
             messagebox.showerror("Error", "Please select a directory to scan.")
             return
-
+        # Run the scan
         findings = self.analyzer.scan_directory(directory)
         prioritized_findings = self.analyzer.prioritize_findings(findings)
         self.db_manager.save_findings(prioritized_findings)
+        # Gather scan statistics
+        file_counts = {"python": 0, "java": 0, "other": 0}
+        vulnerable_counts = {"python": 0, "java": 0, "other": 0}
+        scanned_files = [finding['file'] for finding in findings]
+        vulnerable_files = {file: [] for file in scanned_files}
 
-        messagebox.showinfo("Scan Complete", "Scan completed. Findings saved to the database.")
+        for file in scanned_files:
+            if file.endswith('.py'):
+                file_counts["python"] += 1
+            elif file.endswith('.java'):
+                file_counts["java"] += 1
+            else:
+                file_counts["other"] += 1
+
+        for finding in findings:
+            file = finding['file']
+            if file not in vulnerable_files:
+                vulnerable_files[file] = []
+            vulnerable_files[file].append(finding)
+            if file.endswith('.py'):
+                vulnerable_counts["python"] += 1
+            elif file.endswith('.java'):
+                vulnerable_counts["java"] += 1
+            else:
+                vulnerable_counts["other"] += 1
+
+        # Prepare statistics message
+        stats_message = (
+            f"Scan Complete!\n\n"
+            f"Number of files scanned:\n"
+            f" - Python: {file_counts['python']}\n"
+            f"Number of vulnerable files discovered:\n"
+            f" - Python: {vulnerable_counts['python']}\n"
+        )
+        messagebox.showinfo("Scan Statistics", stats_message)
 
     def export_to_csv(self):
         self.db_manager.export_findings_to_csv()

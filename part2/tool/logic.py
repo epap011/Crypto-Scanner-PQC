@@ -1,0 +1,178 @@
+# logic.py
+import sqlite3
+import ast
+import astor
+
+class CryptoFixer:
+    def __init__(self, db_name="crypto_findings.db"):
+        self.db_name = db_name
+
+    def fetch_findings(self):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM findings")
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+    def apply_fix(self, file_path, changes):
+        """Apply AST-based changes to a file."""
+        try:
+            with open(file_path, 'r') as file:
+                tree = ast.parse(file.read(), filename=file_path)
+
+            for change in changes:
+                tree = change(tree)  # Apply each change to the AST
+
+            # Write the modified code back to the file
+            with open(file_path, 'w') as file:
+                file.write(astor.to_source(tree))
+
+            return True
+        except Exception as e:
+            return f"Failed to apply changes to {file_path}: {e}"
+
+    def is_fixable(self, primitive):
+        """Check if the issue is fixable programmatically."""
+        fixable_primitives = {"AES", "DES", "3DES", "RSA"}  # Extendable
+        return primitive in fixable_primitives
+
+    def get_fix_options(self, primitive):
+        """Return a list of fixes for a given primitive."""
+        options = {
+            "AES": ["Replace with AES-GCM", "Replace with AES-CCM"],
+            "DES": ["Replace with AES-GCM"],
+            "3DES": ["Replace with AES-GCM"],
+            "RSA": ["Upgrade to RSA-3072", "Migrate to PQC"]
+        }
+        return options.get(primitive, ["Manual Fix Required"])
+
+    def generate_ast_changes(self, primitive, fix):
+        """Generate AST changes based on the selected fix."""
+        changes = []
+
+        # AES: Replace with AES-GCM or AES-CCM
+        if primitive == "AES" and fix in ["Replace with AES-GCM", "Replace with AES-CCM"]:
+            mode = "GCM" if fix == "Replace with AES-GCM" else "CCM"
+
+            def replace_aes_mode(tree):
+                class AESModeTransformer(ast.NodeTransformer):
+                    def visit_Call(self, node):
+                        if isinstance(node.func, ast.Attribute) and node.func.attr == "new":
+                            for kw in node.keywords:
+                                if kw.arg == "mode" and isinstance(kw.value, ast.Constant) and kw.value.value == "ECB":
+                                    kw.value = ast.Constant(value=mode)
+                        return node
+
+                return AESModeTransformer().visit(tree)
+
+            changes.append(replace_aes_mode)
+
+        # Diffie-Hellman: Migrate to PQC
+        if primitive == "Diffie-Hellman" and fix in ["Upgrade to RSA-3072", "Migrate to PQC"]:
+            def upgrade_dh_to_rsa(tree):
+                print("Upgrading Diffie-Hellman to RSA")
+                class UpgradeDHToRSATransformer(ast.NodeTransformer):
+                    def visit_Call(self, node):
+                        if isinstance(node.func, ast.Attribute) and node.func.attr == "generate_parameters":
+                            # Replace Diffie-Hellman parameter generation with RSA private key generation
+                            return ast.Call(
+                                func=ast.Attribute(value=ast.Name(id="rsa", ctx=ast.Load()), attr="generate_private_key", ctx=ast.Load()),
+                                args=[],
+                                keywords=[
+                                    ast.keyword(arg="public_exponent", value=ast.Constant(value=65537)),
+                                    ast.keyword(arg="key_size", value=ast.Constant(value=3072)),
+                                ]
+                            )
+                        return node
+
+                return UpgradeDHToRSATransformer().visit(tree)
+
+            changes.append(upgrade_dh_to_rsa)
+
+        # RSA: Upgrade to RSA-3072 or Migrate to PQC
+        if primitive == "RSA" and fix in ["Upgrade to RSA-3072", "Migrate to PQC"]:
+            def upgrade_rsa_key(tree):
+                class UpgradeRSAKeyTransformer(ast.NodeTransformer):
+                    def visit_Call(self, node):
+                        if isinstance(node.func, ast.Attribute) and node.func.attr == "generate":
+                            for kw in node.keywords:
+                                if kw.arg == "key_size" and isinstance(kw.value, ast.Constant):
+                                    kw.value = ast.Constant(value=3072)
+                        return node
+
+                return UpgradeRSAKeyTransformer().visit(tree)
+
+            changes.append(upgrade_rsa_key)
+
+        # DES or 3DES: Replace with AES-GCM
+        if primitive in ["DES", "3DES"] and fix == "Replace with AES-GCM":
+            def replace_des_with_aes(tree):
+                class ReplaceDESWithAESGCMTransformer(ast.NodeTransformer):
+                    def visit_Call(self, node):
+                        if isinstance(node.func, ast.Attribute) and node.func.attr == "new":
+                            for kw in node.keywords:
+                                if kw.arg == "mode" and isinstance(kw.value, ast.Constant):
+                                    kw.value = ast.Constant(value="GCM")
+                            node.func.value.id = "AES"  # Replace DES/3DES with AES
+                        return node
+
+                return ReplaceDESWithAESGCMTransformer().visit(tree)
+
+            changes.append(replace_des_with_aes)
+
+        # Static IVs: Replace with Randomized IV
+        if primitive == "Static_IV" and fix == "Replace with randomized IV":
+            def replace_static_iv(tree):
+                class ReplaceStaticIVTransformer(ast.NodeTransformer):
+                    def visit_Assign(self, node):
+                        for target in node.targets:
+                            if isinstance(target, ast.Name) and target.id == "iv":
+                                node.value = ast.Call(
+                                    func=ast.Attribute(value=ast.Name(id="os", ctx=ast.Load()), attr="urandom", ctx=ast.Load()),
+                                    args=[ast.Constant(value=16)],  # 16 bytes for a 128-bit IV
+                                    keywords=[]
+                                )
+                        return node
+
+                return ReplaceStaticIVTransformer().visit(tree)
+
+            changes.append(replace_static_iv)
+
+        # GCM Tag Verification: Add Authentication Tag Check
+        if primitive == "GCM_NoTagCheck" and fix == "Add GCM tag verification":
+            def add_gcm_tag_verification(tree):
+                class AddGCMTagVerificationTransformer(ast.NodeTransformer):
+                    def visit_Call(self, node):
+                        if isinstance(node.func, ast.Attribute) and node.func.attr == "decrypt":
+                            # Wrap decrypt call with tag verification logic
+                            node = ast.Call(
+                                func=ast.Name(id="verify_gcm_tag", ctx=ast.Load()),
+                                args=[node],
+                                keywords=[]
+                            )
+                        return node
+
+                return AddGCMTagVerificationTransformer().visit(tree)
+
+            changes.append(add_gcm_tag_verification)
+
+        # Hardcoded Keys: Move to Environment Variables
+        if primitive == "Hardcoded Key" and fix == "Move to environment variable":
+            def move_key_to_env(tree):
+                class MoveKeyToEnvTransformer(ast.NodeTransformer):
+                    def visit_Assign(self, node):
+                        for target in node.targets:
+                            if isinstance(target, ast.Name) and target.id.lower() in ["key", "secret_key"]:
+                                node.value = ast.Call(
+                                    func=ast.Attribute(value=ast.Name(id="os", ctx=ast.Load()), attr="environ.get", ctx=ast.Load()),
+                                    args=[ast.Constant(value=target.id.upper())],
+                                    keywords=[]
+                                )
+                        return node
+
+                return MoveKeyToEnvTransformer().visit(tree)
+
+            changes.append(move_key_to_env)
+
+        return changes

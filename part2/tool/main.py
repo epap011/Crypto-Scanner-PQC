@@ -79,6 +79,27 @@ patterns = {
     'bcrypt_default_rounds': r'bcrypt\.gensalt\(.*?\)',
     'bcrypt_weak_rounds': r'bcrypt\.gensalt\(rounds=(\d+)\)',
     'Blowfish_ShortKey': r'Blowfish\.new\(.*?,\s*key=(b".{1,15}"|b".{,15}")',
+
+    # Missing GCM tag verification
+    'GCM_MissingTagCheck': r'AES\.new\(.*?,\s*AES\.MODE_GCM.*?\)\.decrypt\(',
+    # Default Argon2 parameters
+    'Argon2_DefaultParams': r'PasswordHasher\(\)',
+    # Default bcrypt rounds
+    'bcrypt_default_rounds': r'bcrypt\.gensalt\(.*?\)',
+    # No certificate validation
+    'NoCertValidation_SSL': r'_create_unverified_context\(',
+    'NoCertValidation_Requests': r'requests\.get\(.*?,\s*verify=False',
+    'NoCertValidation_Urllib': r'ssl\.create_default_context\(.*?\)',
+    # Weak cipher suites
+    'TLS_WeakCipherSuite': r'set_ciphers\(.*?(DES|3DES|RC4)',
+    # Insufficient PBKDF2 iterations
+    'PBKDF2_WeakIterations': r'pbkdf2_hmac\(.*?,.*?,.*?,\s*(\d+)',
+    # Hardcoded RSA private keys (PEM format)
+    'Hardcoded_RSA_PrivateKey': r'-----BEGIN RSA PRIVATE KEY-----',
+    # Hardcoded symmetric keys
+    'Hardcoded_SymmetricKey': r'["\']([a-fA-F0-9]{32,})["\']',
+    # Insecure protocol references
+    'InsecureProtocol_Strings': r'TLSv1\.0|SSLv3|IKEv1',
 }
 
 # Define risk assessment rules and suggestions
@@ -164,9 +185,22 @@ rules = {
 
     'AES_ECB_Mode': ('Critical', 'ECB mode leaks plaintext patterns.', 'Switch to AES-GCM or AES-CCM.'),
     'AES_GCM_NoTagCheck': ('Critical', 'Missing GCM authentication tag verification.', 'Ensure authentication tag is verified.'),
-    'Argon2_DefaultParams': ('High', 'Argon2 is used with default parameters.', 'Explicitly set time_cost, memory_cost, and parallelism.'),
-    'bcrypt_default_rounds': ('Medium', 'bcrypt is used with default rounds.', 'Ensure rounds >= 12 for adequate security.'),
     'Blowfish_ShortKey': ('Critical', 'Blowfish key is too short (less than 128 bits).', 'Use keys >= 128 bits or switch to AES-256.'),
+
+    'GCM_MissingTagCheck': ('Critical', 'Missing GCM authentication tag verification.', 'Ensure authentication tag is verified.'),
+    'Argon2_DefaultParams': ('Medium', 'Argon2 is used with default parameters.', 'Specify secure parameters: time_cost >= 2, memory_cost >= 65536, parallelism >= 2.'),
+    'bcrypt_default_rounds': ('Medium', 'bcrypt is used with default rounds.', 'Ensure rounds >= 12 for adequate security.'),
+    'NoCertValidation_SSL': ('Critical', 'SSL context with no certificate validation detected.', 'Use a proper SSL context that validates certificates.'),
+    'NoCertValidation_Requests': ('Critical', 'Insecure requests.get call with SSL validation disabled.', 'Enable SSL validation by setting verify=True.'),
+    'NoCertValidation_Urllib': ('Critical', 'Insecure urllib call with SSL validation disabled.', 'Use a proper SSL context that validates certificates.'),
+    'TLS_WeakCipherSuite': ('Critical', 'Weak TLS cipher suite detected.', 'Use secure cipher suites like AES-GCM.'),
+    'PBKDF2_WeakIterations': lambda iterations: (
+        ('Critical', f'Insufficient PBKDF2 iterations: {iterations}', 'Use at least 100,000 iterations.')
+        if int(iterations) < 100000 else ('Low', 'PBKDF2 iterations are sufficient.', 'No action required.')
+    ),
+    'Hardcoded_RSA_PrivateKey': ('Critical', 'Hardcoded RSA private key detected.', 'Avoid embedding private keys in code. Use secure storage.'),
+    'Hardcoded_SymmetricKey': ('Critical', 'Hardcoded symmetric cryptographic key detected.', 'Avoid embedding keys directly in code. Use environment variables or secure storage.'),
+    'InsecureProtocol_Strings': ('Critical', 'Insecure protocol reference detected.', 'Replace with secure protocols like TLS 1.3.'),
 }
 
 # Define deprecated APIs

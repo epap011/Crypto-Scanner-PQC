@@ -234,6 +234,39 @@ class CryptoAnalyzer:
                                 'quantum_vulnerable': False
                             })
 
+                    # Detect Key Material Reuse in HKDF
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                        if node.func.id == 'HKDF':
+                            # Track the reuse of key material in the same file
+                            key_materials = []
+                            for arg in node.args:
+                                if isinstance(arg, ast.Constant):
+                                    key_materials.append(arg.value)
+                            if len(set(key_materials)) < len(key_materials):
+                                results.append({
+                                    'file': file_path,
+                                    'primitive': 'KeyReuse_KDF',
+                                    'parameters': 'Reused Key Material',
+                                    'issue': 'Reused key material in HKDF derivation.',
+                                    'severity': 'Critical',
+                                    'suggestion': 'Use unique salts and diversify derivation inputs.',
+                                    'quantum_vulnerable': False
+                                })
+
+                    # Detect Deprecated Protocol References in Strings
+                    if isinstance(node, ast.Assign) and isinstance(node.value, ast.Str):
+                        if any(proto in node.value.s for proto in ['TLSv1.0', 'SSLv3', 'IKEv1']):
+                            results.append({
+                                'file': file_path,
+                                'primitive': 'Deprecated Protocol',
+                                'parameters': node.value.s,
+                                'issue': 'Deprecated protocol detected in a string reference.',
+                                'severity': 'Critical',
+                                'suggestion': 'Update to modern protocols like TLS 1.3.',
+                                'quantum_vulnerable': False
+                            })
+
+
         except Exception as e:
             logging.error(f"Error parsing AST for file {file_path}: {e}")
         return results

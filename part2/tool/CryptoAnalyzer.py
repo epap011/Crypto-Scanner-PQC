@@ -74,22 +74,36 @@ class CryptoAnalyzer:
                                             'quantum_vulnerable': False
                                         })
 
-                    # Detect hardcoded keys in assignments
+                    # Detect hardcoded keys in assignments (both symmetric and asymmetric)
                     if isinstance(node, ast.Assign):
                         for target in node.targets:
                             if isinstance(target, ast.Name) and isinstance(node.value, ast.Constant):
-                                if target.id.lower() in ['key', 'secret_key', 'aes_key']:
+                                # Check for keys, including symmetric and asymmetric types
+                                if target.id.lower() in ['key', 'secret_key', 'aes_key', 'private_key']:
                                     key_value = node.value.value
-                                    if isinstance(key_value, str) and len(key_value) >= 32:  # Assuming long keys
+                                    # Detect long symmetric keys (>= 32 bytes)
+                                    if isinstance(key_value, str) and len(key_value) >= 32:
                                         results.append({
                                             'file': file_path,
                                             'primitive': 'Hardcoded Key',
                                             'parameters': f'Key={key_value}',
-                                            'issue': 'Hardcoded cryptographic key detected.',
+                                            'issue': 'Hardcoded symmetric cryptographic key detected.',
                                             'severity': 'Critical',
-                                            'suggestion': 'Avoid embedding keys directly in code.',
+                                            'suggestion': 'Avoid embedding keys directly in code. Use environment variables or secure storage.',
                                             'quantum_vulnerable': False
                                         })
+                                    # Detect PEM-encoded RSA private keys
+                                    if isinstance(key_value, str) and "BEGIN RSA PRIVATE KEY" in key_value:
+                                        results.append({
+                                            'file': file_path,
+                                            'primitive': 'Hardcoded Key',
+                                            'parameters': f'Key={key_value}',
+                                            'issue': 'Hardcoded RSA private key detected.',
+                                            'severity': 'Critical',
+                                            'suggestion': 'Avoid embedding private keys directly in code. Use secure key management solutions.',
+                                            'quantum_vulnerable': False
+                                        })
+
 
                     # Detect concatenated values (e.g., IV or Key)
                     if isinstance(node, ast.Assign):
@@ -108,14 +122,29 @@ class CryptoAnalyzer:
                                             'quantum_vulnerable': False
                                         })
 
-                    # Detect Argon2 weak parameters
+                    # Detect Argon2 weak parameters or default parameter usage
                     if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                         if node.func.attr == 'PasswordHasher':
+                            # Map all arguments passed to PasswordHasher()
                             arg_map = {kw.arg: getattr(kw.value, 'value', None) for kw in node.keywords}
-                            time_cost = arg_map.get('time_cost', 1)
-                            memory_cost = arg_map.get('memory_cost', 1024)
-                            parallelism = arg_map.get('parallelism', 1)
-                            if time_cost < 2 or memory_cost < 65536 or parallelism < 2:
+                            time_cost = arg_map.get('time_cost', 1)  # Default time_cost
+                            memory_cost = arg_map.get('memory_cost', 1024)  # Default memory_cost
+                            parallelism = arg_map.get('parallelism', 1)  # Default parallelism
+
+                            # Check for default parameters (no arguments provided)
+                            if not arg_map:  # Defaults used
+                                results.append({
+                                    'file': file_path,
+                                    'primitive': 'Argon2',
+                                    'parameters': 'Default Parameters',
+                                    'issue': 'Argon2 used with default parameters, which may be weak.',
+                                    'severity': 'Medium',
+                                    'suggestion': 'Specify secure parameters: time_cost >= 2, memory_cost >= 65536, parallelism >= 2.',
+                                    'quantum_vulnerable': False
+                                })
+
+                            # Check for explicitly weak parameters
+                            elif time_cost < 2 or memory_cost < 65536 or parallelism < 2:
                                 results.append({
                                     'file': file_path,
                                     'primitive': 'Argon2',
@@ -125,6 +154,7 @@ class CryptoAnalyzer:
                                     'suggestion': 'Use time_cost >= 2, memory_cost >= 65536, parallelism >= 2.',
                                     'quantum_vulnerable': False
                                 })
+
 
                     # Detect bcrypt weak rounds
                     if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
@@ -143,16 +173,64 @@ class CryptoAnalyzer:
                                             'quantum_vulnerable': False
                                         })
 
-                    # Detect missing GCM tag verification
+                    # Detect AES GCM mode decryption without authentication tag verification
                     if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-                        if node.func.attr == 'decrypt' and 'MODE_GCM' in ast.dump(node):
+                        # Check if AES.new is called with MODE_GCM
+                        if node.func.attr == 'new' and any(arg for arg in node.args if hasattr(arg, 'id') and arg.id == 'MODE_GCM'):
+                            # Walk through the AST to check for decrypt calls on the same cipher object
+                            decrypt_call = any(
+                                isinstance(child, ast.Call) and child.func.attr == 'decrypt' for child in ast.walk(node)
+                            )
+                            if decrypt_call:
+                                results.append({
+                                    'file': file_path,
+                                    'primitive': 'AES',
+                                    'parameters': 'MODE_GCM',
+                                    'issue': 'Missing GCM tag verification during decryption.',
+                                    'severity': 'Critical',
+                                    'suggestion': 'Verify the authentication tag during decryption.',
+                                    'quantum_vulnerable': False
+                                })
+
+                    # Detect usage of deprecated SSL/TLS protocols
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                        if node.func.attr in ['SSLContext', 'create_default_context']:
+                            for keyword in node.keywords:
+                                if keyword.arg == 'protocol' and hasattr(keyword.value, 'attr'):
+                                    if keyword.value.attr in ['PROTOCOL_SSLv3', 'PROTOCOL_TLSv1']:
+                                        results.append({
+                                            'file': file_path,
+                                            'primitive': 'TLS',
+                                            'parameters': f'Protocol={keyword.value.attr}',
+                                            'issue': 'Deprecated SSL/TLS protocol detected.',
+                                            'severity': 'Critical',
+                                            'suggestion': 'Update to TLS 1.2 or 1.3 with secure ciphers.',
+                                            'quantum_vulnerable': False
+                                        })
+
+                    # Detect usage of weak PRNGs for key generation
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                        if node.func.attr in ['randint', 'choice', 'shuffle', 'random']:
+                            results.append({
+                                'file': file_path,
+                                'primitive': 'Weak PRNG',
+                                'parameters': f'Method={node.func.attr}',
+                                'issue': 'Using a weak PRNG for cryptographic purposes.',
+                                'severity': 'Critical',
+                                'suggestion': 'Use a cryptographically secure PRNG like `secrets` or `os.urandom`.',
+                                'quantum_vulnerable': False
+                            })
+
+                    # Detect AES usage with insecure ECB mode
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                        if node.func.attr == 'new' and 'AES.MODE_ECB' in ast.dump(node):
                             results.append({
                                 'file': file_path,
                                 'primitive': 'AES',
-                                'parameters': 'MODE_GCM',
-                                'issue': 'Missing GCM authentication tag verification.',
+                                'parameters': 'MODE_ECB',
+                                'issue': 'AES in ECB mode is insecure.',
                                 'severity': 'Critical',
-                                'suggestion': 'Ensure authentication tag is verified during decryption.',
+                                'suggestion': 'Switch to a secure mode like GCM or CCM.',
                                 'quantum_vulnerable': False
                             })
 

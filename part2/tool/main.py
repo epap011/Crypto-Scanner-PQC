@@ -1,3 +1,4 @@
+# main.py
 from CryptoScannerGui import CryptoScannerGUI
 from DatabaseManager import DatabaseManager
 from CryptoAnalyzer import CryptoAnalyzer
@@ -70,6 +71,14 @@ patterns = {
     'Blowfish_WeakKey': r'Blowfish\.new\((.*?)\)',
     # Weak DH Generator
     'DH_WeakGenerator': r'generate_parameters\(generator=(\d+)',
+
+    'AES_ECB_Mode': r'\bAES\.new\(.*?,\s*AES\.MODE_ECB\)',
+    'AES_GCM_NoTagCheck': r'AES\.new\(.*?,\s*AES\.MODE_GCM.*?\)\.decrypt\(.*?\)',
+    'Argon2_WeakParams': r'PasswordHasher\(time_cost=(\d+), memory_cost=(\d+), parallelism=(\d+)\)',
+    'Argon2_DefaultParams': r'PasswordHasher\(\)',
+    'bcrypt_default_rounds': r'bcrypt\.gensalt\(.*?\)',
+    'bcrypt_weak_rounds': r'bcrypt\.gensalt\(rounds=(\d+)\)',
+    'Blowfish_ShortKey': r'Blowfish\.new\(.*?,\s*key=(b".{1,15}"|b".{,15}")',
 }
 
 # Define risk assessment rules and suggestions
@@ -152,6 +161,12 @@ rules = {
     'Blowfish_WeakKey': ('Critical', 'Weak Blowfish key detected.', 'Use a Blowfish key of at least 128 bits or switch to AES.'),
     # Weak DH Generator
     'DH_WeakGenerator': ('Critical', 'Weak Diffie-Hellman generator detected.', 'Use generator=2 or higher. Avoid using 1 or (p-1).'),
+
+    'AES_ECB_Mode': ('Critical', 'ECB mode leaks plaintext patterns.', 'Switch to AES-GCM or AES-CCM.'),
+    'AES_GCM_NoTagCheck': ('Critical', 'Missing GCM authentication tag verification.', 'Ensure authentication tag is verified.'),
+    'Argon2_DefaultParams': ('High', 'Argon2 is used with default parameters.', 'Explicitly set time_cost, memory_cost, and parallelism.'),
+    'bcrypt_default_rounds': ('Medium', 'bcrypt is used with default rounds.', 'Ensure rounds >= 12 for adequate security.'),
+    'Blowfish_ShortKey': ('Critical', 'Blowfish key is too short (less than 128 bits).', 'Use keys >= 128 bits or switch to AES-256.'),
 }
 
 # Define deprecated APIs

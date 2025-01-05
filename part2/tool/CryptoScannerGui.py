@@ -171,31 +171,60 @@ class CryptoScannerGUI:
 
     def export_to_csv(self):
         self.db_manager.export_findings_to_csv()
-    
+
+
     def view_results(self):
         rows = self.db_manager.fetch_all_findings()
         if not rows:
             messagebox.showinfo("No Results", "No findings to display.")
             return
 
+        def search_results(event=None):
+            """Filter results dynamically based on the search term."""
+            search_term = search_entry.get().lower()
+            filtered_rows = [
+                row for row in rows if search_term in str(row[1]).lower()
+            ]
+
+            self.populate_tree(tree, filtered_rows)
+
         result_window = tk.Toplevel(self.root)
         result_window.title("Scan Results")
+
+        # Add Search Bar
+        search_frame = tk.Frame(result_window)
+        search_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        search_label = tk.Label(search_frame, text="Search:", font=("Courier", 12))
+        search_label.pack(side=tk.LEFT, padx=(0, 5))
+
+        search_entry = tk.Entry(search_frame, font=("Courier", 12))
+        search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+
+        # Bind the search functionality to typing in the search entry
+        search_entry.bind("<KeyRelease>", search_results)
+
+        # Add Treeview
         tree = ttk.Treeview(
-            result_window, 
-            columns=("File", "Primitive", "Severity", "Issue"), 
+            result_window,
+            columns=("File", "Primitive", "Severity", "Issue"),
             show='headings'
         )
-        tree.heading("File", text="File", command=lambda: self.sort_tree(tree, rows, column=1))
-        tree.heading("Primitive", text="Primitive", command=lambda: self.sort_tree(tree, rows, column=2))
-        tree.heading("Severity", text="Severity", command=lambda: self.sort_tree(tree, rows, column=5, sort_key=self.severity_sort_key))
-        tree.heading("Issue", text="Issue", command=lambda: self.sort_tree(tree, rows, column=4))
+        tree.heading("File", text="File")
+        tree.heading("Primitive", text="Primitive")
+        tree.heading("Severity", text="Severity")
+        tree.heading("Issue", text="Issue")
         tree.pack(fill=tk.BOTH, expand=True)
 
+        # Tag Configurations for Severity
         tree.tag_configure('Critical', background='#FFCCCC')
         tree.tag_configure('High', background='#FFD580')
         tree.tag_configure('Medium', background='#FFFFCC')
         tree.tag_configure('Low', background='#CCFFCC')
+
+        # Populate Treeview with all results initially
         self.populate_tree(tree, rows)
+
 
     def populate_tree(self, treeview, data):
         """Clear and repopulate the tree with sorted data."""

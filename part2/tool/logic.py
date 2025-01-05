@@ -40,11 +40,50 @@ class CryptoFixer:
     def get_fix_options(self, primitive):
         """Return a list of fixes for a given primitive."""
         options = {
+            # Symmetric Encryption Fixes
             "AES": ["Replace with AES-GCM", "Replace with AES-CCM"],
             "DES": ["Replace with AES-GCM"],
             "3DES": ["Replace with AES-GCM"],
-            "RSA": ["Upgrade to RSA-3072", "Migrate to PQC"]
+            
+            # Asymmetric Encryption Fixes
+            "RSA": ["Upgrade to RSA-3072", "Migrate to PQC"],
+            "Diffie-Hellman": ["Upgrade to RSA-3072", "Migrate to PQC"],
+            
+            # Hash Functions Fixes
+            "MD5": ["Replace with SHA-256"],
+            "SHA1": ["Replace with SHA-256"],
+            
+            # Weak PRNG Fixes
+            "Weak PRNG": ["Replace with secure PRNG (e.g., secrets module)"],
+            
+            # Password Hashing Fixes
+            "PasswordHash_NoSalt": ["Add salt to hashing"],
+            "bcrypt_weak_rounds": ["Increase bcrypt rounds to 12 or more"],
+            
+            # ECC Fixes
+            "ECC_DeprecatedCurve": ["Replace with SECP256R1 or X25519"],
+            
+            # Protocol Fixes
+            "NoCertValidation_SSL": ["Enable certificate validation"],
+            "NoCertValidation_Requests": ["Enable certificate validation"],
+            "NoCertValidation_Urllib": ["Enable certificate validation"],
+            
+            # Cipher Mode Fixes
+            "Static_IV": ["Replace with randomized IV"],
+            "ECB_Mode": ["Replace with AES-GCM or AES-CCM"],
+            "GCM_NoTagCheck": ["Add GCM tag verification"],
+            
+            # Hardcoded Key Fixes
+            "Hardcoded Key": ["Move to environment variable"],
+            "Hardcoded_Credentials": ["Move credentials to environment variables"],
+            
+            # Deprecated Protocols Fixes
+            "Deprecated Protocol": ["Upgrade to modern protocols like TLS 1.3"],
+            
+            # Miscellaneous
+            "Argon2_WeakParams": ["Use stronger parameters: time_cost >= 2, memory_cost >= 65536, parallelism >= 2"]
         }
+
         return options.get(primitive, ["Manual Fix Required"])
 
     def generate_ast_changes(self, primitive, fix):
@@ -174,5 +213,129 @@ class CryptoFixer:
                 return MoveKeyToEnvTransformer().visit(tree)
 
             changes.append(move_key_to_env)
+        
+        # bcrypt_weak_rounds: Increase bcrypt rounds to 12 or more
+        if primitive == "bcrypt_weak_rounds" and fix == "Increase bcrypt rounds to 12 or more":
+            def increase_bcrypt_rounds(tree):
+                class IncreaseBcryptRoundsTransformer(ast.NodeTransformer):
+                    def visit_Call(self, node):
+                        if isinstance(node.func, ast.Attribute) and node.func.attr == "gensalt":
+                            for kw in node.keywords:
+                                if kw.arg == "rounds" and isinstance(kw.value, ast.Constant) and kw.value.value < 12:
+                                    kw.value = ast.Constant(value=12)  # Set rounds to at least 12
+                        return node
+
+                return IncreaseBcryptRoundsTransformer().visit(tree)
+
+            changes.append(increase_bcrypt_rounds)
+
+        # Hardcoded_Credentials: Move credentials to environment variables
+        if primitive == "Hardcoded_Credentials" and fix == "Move credentials to environment variables":
+            def move_credentials_to_env(tree):
+                class MoveCredentialsToEnvTransformer(ast.NodeTransformer):
+                    def visit_Assign(self, node):
+                        for target in node.targets:
+                            if isinstance(target, ast.Name) and target.id.upper() in ["USERNAME", "PASSWORD"]:
+                                node.value = ast.Call(
+                                    func=ast.Attribute(value=ast.Name(id="os", ctx=ast.Load()), attr="environ.get", ctx=ast.Load()),
+                                    args=[ast.Constant(value=target.id.upper())],
+                                    keywords=[]
+                                )
+                        return node
+
+                return MoveCredentialsToEnvTransformer().visit(tree)
+
+            changes.append(move_credentials_to_env)
+
+        # Deprecated Protocol: Upgrade to modern protocols like TLS 1.3
+        if primitive == "Deprecated Protocol" and fix == "Upgrade to modern protocols like TLS 1.3":
+            def upgrade_to_tls13(tree):
+                class UpgradeToTLS13Transformer(ast.NodeTransformer):
+                    def visit_Call(self, node):
+                        if isinstance(node.func, ast.Attribute) and node.func.attr in ["SSLContext", "create_default_context"]:
+                            for kw in node.keywords:
+                                if kw.arg == "protocol" and hasattr(kw.value, "attr") and kw.value.attr in ["PROTOCOL_SSLv3", "PROTOCOL_TLSv1"]:
+                                    kw.value.attr = "PROTOCOL_TLSv1_3"  # Upgrade to TLS 1.3
+                        return node
+
+                return UpgradeToTLS13Transformer().visit(tree)
+
+            changes.append(upgrade_to_tls13)
+
+        # Replace Deprecated Hash Functions
+        if primitive in ["MD5", "SHA1"] and fix == "Replace with SHA-256":
+            def replace_hash_function(tree):
+                class ReplaceHashFunctionTransformer(ast.NodeTransformer):
+                    def visit_Call(self, node):
+                        if isinstance(node.func, ast.Attribute) and node.func.attr in ["md5", "sha1"]:
+                            node.func.attr = "sha256"  # Replace with SHA-256
+                        return node
+
+                return ReplaceHashFunctionTransformer().visit(tree)
+
+            changes.append(replace_hash_function)
+
+        # Add Salt to Password Hashing
+        if primitive == "PasswordHash_NoSalt" and fix == "Add salt to hashing":
+            def add_salt_to_hashing(tree):
+                class AddSaltToHashingTransformer(ast.NodeTransformer):
+                    def visit_Call(self, node):
+                        if isinstance(node.func, ast.Attribute) and node.func.attr in ["sha256", "sha512"]:
+                            salt_node = ast.Call(
+                                func=ast.Attribute(value=ast.Name(id="os", ctx=ast.Load()), attr="urandom", ctx=ast.Load()),
+                                args=[ast.Constant(value=16)],  # 16 bytes for a 128-bit salt
+                                keywords=[]
+                            )
+                            node.args = [salt_node] + node.args  # Prepend salt to args
+                        return node
+
+                return AddSaltToHashingTransformer().visit(tree)
+
+            changes.append(add_salt_to_hashing)
+
+        # Replace Deprecated ECC Curves
+        if primitive == "ECC_DeprecatedCurve" and fix == "Replace with SECP256R1":
+            def replace_ecc_curve(tree):
+                class ReplaceECCCurveTransformer(ast.NodeTransformer):
+                    def visit_Call(self, node):
+                        if isinstance(node.func, ast.Attribute) and node.func.attr == "generate_private_key":
+                            for kw in node.keywords:
+                                if kw.arg == "curve" and hasattr(kw.value, "attr") and "SECP" in kw.value.attr:
+                                    kw.value.attr = "SECP256R1"  # Replace with a secure curve
+                        return node
+
+                return ReplaceECCCurveTransformer().visit(tree)
+
+            changes.append(replace_ecc_curve)
+
+        # Replace Weak PRNG with Secure PRNG
+        if primitive == "Weak PRNG" and fix == "Replace with secure PRNG":
+            def replace_prng(tree):
+                class ReplacePRNGTransformer(ast.NodeTransformer):
+                    def visit_Call(self, node):
+                        if isinstance(node.func, ast.Attribute) and node.func.attr in ["randint", "random"]:
+                            node.func = ast.Attribute(value=ast.Name(id="secrets", ctx=ast.Load()), attr="randbelow", ctx=ast.Load())
+                            node.args = [ast.Constant(value=1000000)]  # Example upper limit for randbelow
+                        return node
+
+                return ReplacePRNGTransformer().visit(tree)
+
+            changes.append(replace_prng)
+        
+        # Add Certificate Validation in SSL
+        if primitive in ["NoCertValidation_SSL", "NoCertValidation_Requests"] and fix == "Enable certificate validation":
+            def enable_cert_validation(tree):
+                class EnableCertValidationTransformer(ast.NodeTransformer):
+                    def visit_Call(self, node):
+                        if isinstance(node.func, ast.Attribute) and node.func.attr in ["_create_unverified_context", "requests.get"]:
+                            for kw in node.keywords:
+                                if kw.arg == "verify" and isinstance(kw.value, ast.Constant) and kw.value.value is False:
+                                    kw.value.value = True  # Enable certificate validation
+                        return node
+
+                return EnableCertValidationTransformer().visit(tree)
+
+            changes.append(enable_cert_validation)
 
         return changes
+

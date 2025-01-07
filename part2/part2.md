@@ -6,8 +6,6 @@ This report documents the implementation and results of **Part 2** of the projec
 
 Building upon concepts outlined in **Part 1**, the project leverages principles of cryptographic agility and post-quantum cryptography (PQC) readiness. Our approach employs both **pattern-based analysis** and **semantic inspection** for identifying vulnerabilities, with Python as the target programming language to ensure thorough detection.
 
----
-
 ## Features
 
 ### Comprehensive Vulnerability Detection
@@ -53,8 +51,6 @@ Functionalities include:
 
 #### 4. Enhanced Visualization
 The GUI includes statistical breakdowns of vulnerabilities by severity, accompanied by bar charts for improved analysis.
-
----
 
 ## Design and Implementation
 
@@ -105,13 +101,9 @@ This framework is applied to findings involving quantum-vulnerable primitives su
 
 The combination of a robust framework and a risk assessment mechanism like Mosca’s Inequality equips the tool to effectively manage cryptographic agility challenges and prepare systems for a post-quantum era.
 
----
-
 ## Vulnerabilities Detected by Cryptographic Scanner
 
 The **Cryptographic Scanner** is designed to identify a wide array of cryptographic vulnerabilities, ranging from outdated algorithms to insecure implementations. This section provides a detailed explanation of the vulnerabilities detected by the scanner.
-
----
 
 ### 1. Symmetric Ciphers
 
@@ -323,8 +315,6 @@ The **Cryptographic Scanner** is designed to identify a wide array of cryptograp
 - **Severity**: Critical  
 - **Issue**: Reusing the same key material in HKDF derivation compromises security.  
 - **Recommendation**: Use unique salts and diversify derivation inputs for each key derivation.
-
----
 
 ## Conclusion
 

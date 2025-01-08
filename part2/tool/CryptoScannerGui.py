@@ -395,6 +395,8 @@ class CryptoScannerGUI:
             if original_code_content:
                 with open(file, 'w') as f:
                     f.write(original_code_content)
+                
+                self.db_manager.update_finding_status(finding_id, 'not_fixed')
                 messagebox.showinfo("Reverted", f"Changes reverted to original code for {file}.")
                 modal.destroy()
             else:

@@ -148,16 +148,34 @@ class CryptoScannerGUI:
             self.populate_tree(tree, filtered_rows)
             update_statistics(filtered_rows)
 
+        def sort_treeview(tree, col, reverse):
+            # Retrieve data from the Treeview
+            data = [(tree.set(child, col), child) for child in tree.get_children("")]
+            # Sort data based on the column
+            data.sort(key=lambda t: t[0], reverse=reverse)
+            # Rearrange items in sorted order
+            for index, (val, child) in enumerate(data):
+                tree.move(child, '', index)
+            # Reverse the sorting for the next click
+            tree.heading(col, command=lambda: sort_treeview(tree, col, not reverse))
+
+
         def update_statistics(filtered_rows):
             critical_count = sum(1 for row in filtered_rows if row[5] == 'Critical')
             high_count     = sum(1 for row in filtered_rows if row[5] == 'High')
             medium_count   = sum(1 for row in filtered_rows if row[5] == 'Medium')
             low_count      = sum(1 for row in filtered_rows if row[5] == 'Low')
 
+            auto_fix_count = sum(1 for row in filtered_rows if self.fixer.get_fix_options(row[2]) != ["Manual Fix Required"])
+            manual_fix_count = sum(1 for row in filtered_rows if self.fixer.get_fix_options(row[2]) == ["Manual Fix Required"])
+
             critical_label.config(text=f"Critical: {critical_count}")
             high_label.config(text=f"High: {high_count}")
             medium_label.config(text=f"Medium: {medium_count}")
             low_label.config(text=f"Low: {low_count}")
+
+            auto_fix_label.config(text=f"Automatic Fix Exists: {auto_fix_count}")
+            manual_fix_label.config(text=f"Manual Intervention Required: {manual_fix_count}")
 
         result_window = tk.Toplevel(self.root)
         result_window.title("Scan Results")
@@ -188,16 +206,21 @@ class CryptoScannerGUI:
         low_label = tk.Label(stats_frame, text="Low: 0", font=("Courier", 12), fg="#407fc2")
         low_label.pack(side=tk.LEFT, padx=(0, 15))
 
+        auto_fix_label = tk.Label(stats_frame, text="Automatic Fix Exists: 0", font=("Courier", 12), fg="#008000")
+        auto_fix_label.pack(side=tk.RIGHT, padx=(15, 0))
+
+        manual_fix_label = tk.Label(stats_frame, text="Manual Intervention Required: 0", font=("Courier", 12), fg="#FF4500")
+        manual_fix_label.pack(side=tk.RIGHT, padx=(15, 0))
+
         tree = ttk.Treeview(
             result_window,
-            columns=("File", "Primitive", "Issue", "Severity", "Fixable"),
+            columns=("File", "Primitive", "Issue", "Severity", "Solution", "Fix"),
             show='headings'
         )
-        tree.heading("File", text="File")
-        tree.heading("Primitive", text="Primitive")
-        tree.heading("Issue", text="Issue")
-        tree.heading("Severity", text="Severity")
-        tree.heading("Fixable", text="Fixable")
+
+        for col in ("File", "Primitive", "Issue", "Severity", "Solution", "Fix"):
+            tree.heading(col, text=col, command=lambda _col=col: sort_treeview(tree, _col, False))
+
         tree.pack(fill=tk.BOTH, expand=True)
 
         tree.tag_configure('Critical', background='#FFCCCC')
@@ -208,26 +231,44 @@ class CryptoScannerGUI:
         self.populate_tree(tree, rows)
         update_statistics(rows)
 
-        tree.bind("<Double-1>", lambda event: self.fix_selected_file(tree))
+        def on_double_click(event):
+            selected_item = tree.selection()
+            if not selected_item:
+                return
+            selected_item = selected_item[0]
+            fix_type = tree.item(selected_item, 'values')[-1]
+            if fix_type == "Manual Intervention Required":
+                return
+            self.fix_selected_file(tree)
+
+        tree.bind("<Double-1>", on_double_click)
 
     def populate_tree(self, treeview, data):
         for item in treeview.get_children():
             treeview.delete(item)
         for row in data:
+            # Dynamically determine the fix type
+            primitive = row[2]
+            fix_options = self.fixer.get_fix_options(primitive)
+            if fix_options and fix_options != ["Manual Fix Required"]:
+                fix_type = "Automatic fix exists"
+            else:
+                fix_type = "Manual Intervention Required"
             severity = row[5]
             tag = severity
-            treeview.insert("", tk.END, values=(row[1], row[2], row[4], row[5], row[6]), tags=(tag,))
+            treeview.insert("", tk.END, values=(row[1], row[2], row[4], row[5], row[6], fix_type), tags=(tag,))
 
     def fix_selected_file(self, tree):
         selected_item = tree.selection()
         if not selected_item:
             messagebox.showerror("Error", "Please select a file to fix.")
             return
-
+        
         selected_item = selected_item[0]
-        file, primitive, issue, severity, fixable = tree.item(selected_item, 'values')
+        # Unpack including the new "Fix Type" column
+        file, primitive, issue, severity, solution, fix_type = tree.item(selected_item, 'values')
 
-        if fixable == "No":
+        if solution == "Manual Intervention Required":
             messagebox.showwarning(
                 "Manual Intervention Required",
                 f"The issue in {file} with {primitive} requires manual intervention."
@@ -235,6 +276,7 @@ class CryptoScannerGUI:
             return
 
         self.show_fix_modal(file, primitive, issue)
+
 
     def show_fix_modal(self, file, primitive, issue):
         modal = tk.Toplevel(self.root)

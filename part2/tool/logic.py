@@ -19,18 +19,33 @@ class CryptoFixer:
         """Apply AST-based changes to a file."""
         try:
             with open(file_path, 'r') as file:
-                tree = ast.parse(file.read(), filename=file_path)
+                source_code = file.read()
+                tree = ast.parse(source_code, filename=file_path)
+
+            #print("Original Code:")
+            #print(source_code)
 
             for change in changes:
                 tree = change(tree)  # Apply each change to the AST
+                #print("After Change:")
+                #print(astor.to_source(tree))  # Debug transformed AST to source code
+
+            # Fix missing locations in AST
+            tree = ast.fix_missing_locations(tree)
 
             # Write the modified code back to the file
             with open(file_path, 'w') as file:
-                file.write(astor.to_source(tree))
+                modified_code = astor.to_source(tree)
+                file.write(modified_code)
+
+            #print("Final Transformed Code:")
+            #print(modified_code)
 
             return True
         except Exception as e:
+            print(f"Error during transformation: {e}")
             return f"Failed to apply changes to {file_path}: {e}"
+
 
     def is_fixable(self, primitive):
         """Check if the issue is fixable programmatically."""
@@ -88,6 +103,7 @@ class CryptoFixer:
 
     def generate_ast_changes(self, primitive, fix):
         """Generate AST changes based on the selected fix."""
+        print(f"Debug: Primitive={primitive}, Fix={fix}") 
         changes = []
 
         # AES: Replace with AES-GCM or AES-CCM
@@ -343,9 +359,25 @@ class CryptoFixer:
             def replace_hash_function(tree):
                 class ReplaceHashFunctionTransformer(ast.NodeTransformer):
                     def visit_Call(self, node):
-                        if isinstance(node.func, ast.Attribute) and node.func.attr in ["md5", "sha1"]:
-                            node.func.attr = "sha256"  # Replace with SHA-256
-                        return node
+                        # Check if this is an hmac.new call with a nested hashlib function
+                        if (
+                            isinstance(node.func, ast.Attribute)
+                            and isinstance(node.func.value, ast.Name)
+                            and node.func.value.id == "hmac"
+                            and node.func.attr == "new"
+                        ):
+                            # Traverse the args of hmac.new
+                            for arg in node.args:
+                                if (
+                                    isinstance(arg, ast.Attribute)
+                                    and isinstance(arg.value, ast.Name)
+                                    and arg.value.id == "hashlib"
+                                    and arg.attr in ["md5", "sha1"]
+                                ):
+                                    # Replace md5/sha1 with sha256
+                                    arg.attr = "sha256"
+
+                        return self.generic_visit(node)  # Continue visiting other nodes
 
                 return ReplaceHashFunctionTransformer().visit(tree)
 
@@ -355,14 +387,51 @@ class CryptoFixer:
         if primitive == "PasswordHash_NoSalt" and fix == "Add salt to hashing":
             def add_salt_to_hashing(tree):
                 class AddSaltToHashingTransformer(ast.NodeTransformer):
-                    def visit_Call(self, node):
-                        if isinstance(node.func, ast.Attribute) and node.func.attr in ["sha256", "sha512"]:
-                            salt_node = ast.Call(
-                                func=ast.Attribute(value=ast.Name(id="os", ctx=ast.Load()), attr="urandom", ctx=ast.Load()),
-                                args=[ast.Constant(value=16)],  # 16 bytes for a 128-bit salt
-                                keywords=[]
+                    def visit_Module(self, node):
+                        import_os = ast.Import(names=[ast.alias(name="os", asname=None)])
+                        has_os_import = any(
+                            isinstance(stmt, ast.Import) and any(alias.name == "os" for alias in stmt.names)
+                            for stmt in node.body
+                        )
+                        if not has_os_import:
+                            node.body.insert(0, import_os)
+                        return self.generic_visit(node)
+
+                    def visit_Assign(self, node):
+                        # Check if this is a hash function (including chained calls)
+                        if (
+                            isinstance(node.value, ast.Call)
+                            and isinstance(node.value.func, ast.Attribute)
+                            and isinstance(node.value.func.value, ast.Call)
+                            and isinstance(node.value.func.value.func, ast.Attribute)
+                            and isinstance(node.value.func.value.func.value, ast.Name)
+                            and node.value.func.value.func.value.id == "hashlib"  # Ensure it's a hashlib call
+                            and node.value.func.value.func.attr in ["sha256", "sha512"]
+                        ):
+                            # Generate a random salt
+                            salt_assignment = ast.Assign(
+                                targets=[ast.Name(id="salt", ctx=ast.Store())],
+                                value=ast.Call(
+                                    func=ast.Attribute(
+                                        value=ast.Name(id="os", ctx=ast.Load()),
+                                        attr="urandom",
+                                        ctx=ast.Load(),
+                                    ),
+                                    args=[ast.Constant(value=16)],  # 16 bytes for a 128-bit salt
+                                    keywords=[],
+                                ),
                             )
-                            node.args = [salt_node] + node.args  # Prepend salt to args
+                            # Combine salt with password before hashing
+                            salted_password = ast.BinOp(
+                                left=ast.Name(id="salt", ctx=ast.Load()),
+                                op=ast.Add(),
+                                right=node.value.func.value.args[0],  # Original password
+                            )
+                            # Update the hash operation to use salted password
+                            node.value.func.value.args[0] = salted_password
+                            # Insert the salt generation before the current assignment
+                            return [salt_assignment, node]
+
                         return node
 
                 return AddSaltToHashingTransformer().visit(tree)
@@ -385,33 +454,72 @@ class CryptoFixer:
             changes.append(replace_ecc_curve)
 
         # Replace Weak PRNG with Secure PRNG
-        if primitive == "Weak PRNG" and fix == "Replace with secure PRNG":
+        if primitive == "Weak PRNG" and fix == "Replace with secure PRNG (e.g., secrets module)":
             def replace_prng(tree):
                 class ReplacePRNGTransformer(ast.NodeTransformer):
-                    def visit_Call(self, node):
-                        if isinstance(node.func, ast.Attribute) and node.func.attr in ["randint", "random"]:
-                            node.func = ast.Attribute(value=ast.Name(id="secrets", ctx=ast.Load()), attr="randbelow", ctx=ast.Load())
-                            node.args = [ast.Constant(value=1000000)]  # Example upper limit for randbelow
+                    def __init__(self):
+                        self.import_secrets_added = False  # Track if `secrets` import exists
+
+                    def visit_Import(self, node):
+                        # Check if `secrets` is already imported
+                        for alias in node.names:
+                            if alias.name == "secrets":
+                                self.import_secrets_added = True
                         return node
+
+                    def visit_ImportFrom(self, node):
+                        # Check if `secrets` is already imported with `from` statement
+                        if node.module == "secrets":
+                            self.import_secrets_added = True
+                        return node
+
+                    def visit_Module(self, node):
+                        # Add `import secrets` if not already present
+                        self.generic_visit(node)
+                        if not self.import_secrets_added:
+                            import_secrets = ast.Import(names=[ast.alias(name="secrets", asname=None)])
+                            node.body.insert(0, import_secrets)
+                        return node
+
+                    def visit_Call(self, node):
+                        # Replace `random.choice` with `secrets.choice`
+                        if (
+                            isinstance(node.func, ast.Attribute)
+                            and isinstance(node.func.value, ast.Name)
+                            and node.func.value.id == "random"
+                            and node.func.attr == "choice"
+                        ):
+                            return ast.Call(
+                                func=ast.Attribute(value=ast.Name(id="secrets", ctx=ast.Load()), attr="choice", ctx=ast.Load()),
+                                args=node.args,
+                                keywords=[],
+                            )
+                        return self.generic_visit(node)
 
                 return ReplacePRNGTransformer().visit(tree)
 
             changes.append(replace_prng)
+
         
         # Add Certificate Validation in SSL
-        if primitive in ["NoCertValidation_SSL", "NoCertValidation_Requests"] and fix == "Enable certificate validation":
+        if primitive == "NoCertValidation_SSL" and fix == "Enable certificate validation":
             def enable_cert_validation(tree):
                 class EnableCertValidationTransformer(ast.NodeTransformer):
                     def visit_Call(self, node):
-                        if isinstance(node.func, ast.Attribute) and node.func.attr in ["_create_unverified_context", "requests.get"]:
-                            for kw in node.keywords:
-                                if kw.arg == "verify" and isinstance(kw.value, ast.Constant) and kw.value.value is False:
-                                    kw.value.value = True  # Enable certificate validation
-                        return node
+                        if (
+                            isinstance(node.func, ast.Attribute)
+                            and hasattr(node.func, 'attr')
+                            and node.func.attr == "_create_unverified_context"
+                        ):
+                            print(f"Replacing _create_unverified_context at line {node.lineno}")  # Debug
+                            # Update function name to `create_default_context`
+                            node.func.attr = "create_default_context"
+                        return self.generic_visit(node)
 
                 return EnableCertValidationTransformer().visit(tree)
 
             changes.append(enable_cert_validation)
+
 
         return changes
 

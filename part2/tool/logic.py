@@ -67,14 +67,17 @@ class CryptoFixer:
             # Hash Functions Fixes
             "MD5": ["Replace with SHA-256"],
             "SHA1": ["Replace with SHA-256"],
-            
+            "SHA-224": ["Replace with SHA-256"],
+
             # Weak PRNG Fixes
             "Weak PRNG": ["Replace with secure PRNG (e.g., secrets module)"],
-            
+            "Weak_PRNG_KeyGen": ["Replace with secure PRNG (e.g., secrets module)"],
+
             # Password Hashing Fixes
             "PasswordHash_NoSalt": ["Add salt to hashing"],
             "bcrypt_weak_rounds": ["Increase bcrypt rounds to 12 or more"],
-            
+            "bcrypt_default_rounds": ["Increase bcrypt rounds to 12 or more"],
+
             # ECC Fixes
             "ECC_DeprecatedCurve": ["Replace with SECP256R1 or X25519"],
             
@@ -302,7 +305,7 @@ class CryptoFixer:
             changes.append(move_key_to_env)
         
         # bcrypt_weak_rounds: Increase bcrypt rounds to 12 or more
-        if primitive == "bcrypt_weak_rounds" and fix == "Increase bcrypt rounds to 12 or more":
+        if primitive in ["bcrypt_weak_rounds", "bcrypt_default_rounds"] and fix == "Increase bcrypt rounds to 12 or more":
             def increase_bcrypt_rounds(tree):
                 class IncreaseBcryptRoundsTransformer(ast.NodeTransformer):
                     def visit_Call(self, node):
@@ -386,37 +389,34 @@ class CryptoFixer:
             changes.append(upgrade_to_tls13)
 
         # Replace Deprecated Hash Functions
-        if primitive in ["MD5", "SHA1"] and fix == "Replace with SHA-256":
-            def replace_hash_function(tree):
-                class ReplaceHashFunctionTransformer(ast.NodeTransformer):
-                    def visit_Call(self, node):
-                        # Handle direct `hashlib` calls
-                        if (
-                            isinstance(node.func, ast.Attribute)
-                            and isinstance(node.func.value, ast.Name)
-                            and node.func.value.id == "hashlib"
-                            and node.func.attr in ["md5", "sha1", "sha224"]  # Extendable
-                        ):
-                            print(f"Replacing {node.func.attr} with sha256")
-                            node.func.attr = "sha256"
-
-                        # Traverse arguments of the function call
-                        for i, arg in enumerate(node.args):
+        if primitive in ["MD5", "SHA1", "SHA-224"] and fix == "Replace with SHA-256":  # Added SHA-224 here
+                def replace_hash_function(tree):
+                    class ReplaceHashFunctionTransformer(ast.NodeTransformer):
+                        def visit_Call(self, node):
+                            # Handle direct `hashlib` calls
                             if (
-                                isinstance(arg, ast.Attribute)
-                                and isinstance(arg.value, ast.Name)
-                                and arg.value.id == "hashlib"
-                                and arg.attr in ["md5", "sha1", "sha224"]
+                                isinstance(node.func, ast.Attribute)
+                                and isinstance(node.func.value, ast.Name)
+                                and node.func.value.id == "hashlib"
+                                and node.func.attr in ["md5", "sha1", "sha224"]  # Extended list
                             ):
-                                print(f"Replacing nested {arg.attr} with sha256")
-                                arg.attr = "sha256"
+                                node.func.attr = "sha256"
 
-                        return self.generic_visit(node)
+                            # Traverse arguments of the function call
+                            for i, arg in enumerate(node.args):
+                                if (
+                                    isinstance(arg, ast.Attribute)
+                                    and isinstance(arg.value, ast.Name)
+                                    and arg.value.id == "hashlib"
+                                    and arg.attr in ["md5", "sha1", "sha224"]
+                                ):
+                                    arg.attr = "sha256"
 
-                return ReplaceHashFunctionTransformer().visit(tree)
+                            return self.generic_visit(node)
 
-            changes.append(replace_hash_function)  # Ensure this line matches the block's indentation
+                    return ReplaceHashFunctionTransformer().visit(tree)
 
+                changes.append(replace_hash_function)
 
         # Add Salt to Password Hashing
         if primitive == "PasswordHash_NoSalt" and fix == "Add salt to hashing":
@@ -534,6 +534,64 @@ class CryptoFixer:
                 return ReplacePRNGTransformer().visit(tree)
 
             changes.append(replace_prng)
+
+        if primitive == "Weak_PRNG_KeyGen" and fix == "Replace with secure PRNG (e.g., secrets module)":
+            def replace_prng_with_secrets(tree):
+                class ReplacePRNGTransformer(ast.NodeTransformer):
+                    def __init__(self):
+                        self.import_secrets_added = False
+
+                    def visit_Import(self, node):
+                        # Check if `secrets` is already imported
+                        for alias in node.names:
+                            if alias.name == "secrets":
+                                self.import_secrets_added = True
+                        return node
+
+                    def visit_Module(self, node):
+                        # Add `import secrets` if not already present
+                        self.generic_visit(node)
+                        if not self.import_secrets_added:
+                            import_secrets = ast.Import(names=[ast.alias(name="secrets", asname=None)])
+                            node.body.insert(0, import_secrets)
+                        return node
+
+                    def visit_Call(self, node):
+                        # Replace `random.choices` with secure logic using `secrets.choice`
+                        if (
+                            isinstance(node.func, ast.Attribute)
+                            and isinstance(node.func.value, ast.Name)
+                            and node.func.value.id == "random"
+                            and node.func.attr == "choices"
+                        ):
+                            iterable = node.args[0]  # First argument to `choices` is the iterable
+                            length = node.keywords[0].value if node.keywords else node.args[1]  # Second argument is `k`
+                            # Transform to secure equivalent
+                            return ast.ListComp(
+                                elt=ast.Call(
+                                    func=ast.Attribute(value=ast.Name(id="secrets", ctx=ast.Load()), attr="choice", ctx=ast.Load()),
+                                    args=[iterable],
+                                    keywords=[]
+                                ),
+                                generators=[
+                                    ast.comprehension(
+                                        target=ast.Name(id="_", ctx=ast.Store()),
+                                        iter=ast.Call(
+                                            func=ast.Name(id="range", ctx=ast.Load()),
+                                            args=[length],
+                                            keywords=[]
+                                        ),
+                                        ifs=[],
+                                        is_async=0
+                                    )
+                                ]
+                            )
+                        return self.generic_visit(node)
+
+                return ReplacePRNGTransformer().visit(tree)
+
+            changes.append(replace_prng_with_secrets)
+
 
         
         # Add Certificate Validation in SSL

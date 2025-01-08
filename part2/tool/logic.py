@@ -22,13 +22,13 @@ class CryptoFixer:
                 source_code = file.read()
                 tree = ast.parse(source_code, filename=file_path)
 
-            #print("Original Code:")
-            #print(source_code)
+            print("Original Code:")
+            print(source_code)
 
             for change in changes:
                 tree = change(tree)  # Apply each change to the AST
-                #print("After Change:")
-                #print(astor.to_source(tree))  # Debug transformed AST to source code
+                print("After Change:")
+                print(astor.to_source(tree))  # Debug transformed AST to source code
 
             # Fix missing locations in AST
             tree = ast.fix_missing_locations(tree)
@@ -38,8 +38,8 @@ class CryptoFixer:
                 modified_code = astor.to_source(tree)
                 file.write(modified_code)
 
-            #print("Final Transformed Code:")
-            #print(modified_code)
+            print("Final Transformed Code:")
+            print(modified_code)
 
             return True
         except Exception as e:
@@ -256,13 +256,44 @@ class CryptoFixer:
         if primitive == "Hardcoded Key" and fix == "Move to environment variable":
             def move_key_to_env(tree):
                 class MoveKeyToEnvTransformer(ast.NodeTransformer):
+                    def __init__(self):
+                        self.import_os_added = False
+
+                    def visit_Import(self, node):
+                        # Check if `os` is already imported
+                        for alias in node.names:
+                            if alias.name == "os":
+                                self.import_os_added = True
+                        return node
+
+                    def visit_Module(self, node):
+                        # Add `import os` if it's not already imported
+                        self.generic_visit(node)
+                        if not self.import_os_added:
+                            import_os = ast.Import(names=[ast.alias(name="os", asname=None)])
+                            node.body.insert(0, import_os)
+                        return node
+
                     def visit_Assign(self, node):
-                        for target in node.targets:
-                            if isinstance(target, ast.Name) and target.id.lower() in ["key", "secret_key"]:
+                        # Detect hardcoded symmetric or RSA keys dynamically
+                        if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                            # Use the variable name as the environment variable key
+                            if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+                                variable_name = node.targets[0].id.upper()  # Convert variable name to uppercase for ENV key
+                                original_value = node.value
+
+                                # Replace with os.environ.get
                                 node.value = ast.Call(
-                                    func=ast.Attribute(value=ast.Name(id="os", ctx=ast.Load()), attr="environ.get", ctx=ast.Load()),
-                                    args=[ast.Constant(value=target.id.upper())],
-                                    keywords=[]
+                                    func=ast.Attribute(
+                                        value=ast.Name(id="os", ctx=ast.Load()),
+                                        attr="environ.get",
+                                        ctx=ast.Load(),
+                                    ),
+                                    args=[
+                                        ast.Constant(value=variable_name),  # Environment variable key
+                                        original_value,  # Default value
+                                    ],
+                                    keywords=[],
                                 )
                         return node
 
@@ -359,29 +390,33 @@ class CryptoFixer:
             def replace_hash_function(tree):
                 class ReplaceHashFunctionTransformer(ast.NodeTransformer):
                     def visit_Call(self, node):
-                        # Check if this is an hmac.new call with a nested hashlib function
+                        # Handle direct `hashlib` calls
                         if (
                             isinstance(node.func, ast.Attribute)
                             and isinstance(node.func.value, ast.Name)
-                            and node.func.value.id == "hmac"
-                            and node.func.attr == "new"
+                            and node.func.value.id == "hashlib"
+                            and node.func.attr in ["md5", "sha1", "sha224"]  # Extendable
                         ):
-                            # Traverse the args of hmac.new
-                            for arg in node.args:
-                                if (
-                                    isinstance(arg, ast.Attribute)
-                                    and isinstance(arg.value, ast.Name)
-                                    and arg.value.id == "hashlib"
-                                    and arg.attr in ["md5", "sha1"]
-                                ):
-                                    # Replace md5/sha1 with sha256
-                                    arg.attr = "sha256"
+                            print(f"Replacing {node.func.attr} with sha256")
+                            node.func.attr = "sha256"
 
-                        return self.generic_visit(node)  # Continue visiting other nodes
+                        # Traverse arguments of the function call
+                        for i, arg in enumerate(node.args):
+                            if (
+                                isinstance(arg, ast.Attribute)
+                                and isinstance(arg.value, ast.Name)
+                                and arg.value.id == "hashlib"
+                                and arg.attr in ["md5", "sha1", "sha224"]
+                            ):
+                                print(f"Replacing nested {arg.attr} with sha256")
+                                arg.attr = "sha256"
+
+                        return self.generic_visit(node)
 
                 return ReplaceHashFunctionTransformer().visit(tree)
 
-            changes.append(replace_hash_function)
+            changes.append(replace_hash_function)  # Ensure this line matches the block's indentation
+
 
         # Add Salt to Password Hashing
         if primitive == "PasswordHash_NoSalt" and fix == "Add salt to hashing":

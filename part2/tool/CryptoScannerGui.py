@@ -221,6 +221,7 @@ class CryptoScannerGUI:
             columns=("ID", "File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Status"),
             show='headings'
         )
+        tree.column("ID", width=3, anchor=tk.W)
         tree.pack(fill=tk.BOTH, expand=True)
         
         for col in ("File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Status"):
@@ -289,7 +290,7 @@ class CryptoScannerGUI:
     def show_fix_modal(self, finding_id, file, primitive, issue):
         modal = tk.Toplevel(self.root)
         modal.title("Fix Cryptographic Issue")
-        modal.geometry("800x600")
+        modal.geometry("800x900")
 
         tk.Label(modal, text=f"File: {file}", font=("Courier", 12)).pack(pady=5)
         tk.Label(modal, text=f"Primitive: {primitive}", font=("Courier", 12)).pack(pady=5)

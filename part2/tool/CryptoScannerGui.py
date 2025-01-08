@@ -1,3 +1,4 @@
+# CryptoScannerGui.py
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from logic import CryptoFixer
@@ -217,14 +218,14 @@ class CryptoScannerGUI:
 
         tree = ttk.Treeview(
             result_window,
-            columns=("File", "Primitive", "Issue", "Severity", "Solution", "Fix"),
+            columns=("ID", "File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Status"),
             show='headings'
         )
-
-        for col in ("File", "Primitive", "Issue", "Severity", "Solution", "Fix"):
+        tree.pack(fill=tk.BOTH, expand=True)
+        
+        for col in ("File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Status"):
             tree.heading(col, text=col, command=lambda _col=col: sort_treeview(tree, _col, False))
 
-        tree.pack(fill=tk.BOTH, expand=True)
 
         tree.tag_configure('Critical', background='#FFCCCC')
         tree.tag_configure('High'    , background='#FFD580')
@@ -239,7 +240,7 @@ class CryptoScannerGUI:
             if not selected_item:
                 return
             selected_item = selected_item[0]
-            fix_type = tree.item(selected_item, 'values')[-1]
+            fix_type = tree.item(selected_item, 'values')[-2]
             if fix_type == "Manual Intervention Required":
                 return
             self.fix_selected_file(tree)
@@ -250,7 +251,8 @@ class CryptoScannerGUI:
         for item in treeview.get_children():
             treeview.delete(item)
         for row in data:
-            # Dynamically determine the fix type
+            # Include `finding_id` (row[0]) as part of the TreeView values
+            finding_id = row[0]
             primitive = row[2]
             fix_options = self.fixer.get_fix_options(primitive)
             if fix_options and fix_options != ["Manual Fix Required"]:
@@ -258,18 +260,21 @@ class CryptoScannerGUI:
             else:
                 fix_type = "Manual Intervention Required"
             severity = row[5]
+            status = row[9]
             tag = severity
-            treeview.insert("", tk.END, values=(row[1], row[2], row[4], row[5], row[6], fix_type), tags=(tag,))
+            treeview.insert("", tk.END, values=(finding_id, row[1], row[2], row[4], row[5], row[6], fix_type, status),tags=(tag,) )
+            
 
+            
     def fix_selected_file(self, tree):
         selected_item = tree.selection()
         if not selected_item:
             messagebox.showerror("Error", "Please select a file to fix.")
             return
-        
+
         selected_item = selected_item[0]
-        # Unpack including the new "Fix Type" column
-        file, primitive, issue, severity, solution, fix_type = tree.item(selected_item, 'values')
+        # Assuming `finding_id` is the first column in the TreeView data
+        finding_id, file, primitive, issue, severity, solution, fix_type, status = tree.item(selected_item, 'values')
 
         if solution == "Manual Intervention Required":
             messagebox.showwarning(
@@ -278,15 +283,14 @@ class CryptoScannerGUI:
             )
             return
 
-        self.show_fix_modal(file, primitive, issue)
+        # Pass all required arguments, including finding_id
+        self.show_fix_modal(finding_id, file, primitive, issue)
 
-
-    def show_fix_modal(self, file, primitive, issue):
+    def show_fix_modal(self, finding_id, file, primitive, issue):
         modal = tk.Toplevel(self.root)
         modal.title("Fix Cryptographic Issue")
         modal.geometry("800x600")
 
-        # Layout for original and updated code side-by-side
         tk.Label(modal, text=f"File: {file}", font=("Courier", 12)).pack(pady=5)
         tk.Label(modal, text=f"Primitive: {primitive}", font=("Courier", 12)).pack(pady=5)
         tk.Label(modal, text=f"Issue: {issue}", font=("Courier", 12)).pack(pady=5)
@@ -306,7 +310,6 @@ class CryptoScannerGUI:
         updated_code = tk.Text(code_frame, wrap=tk.NONE, font=("Courier", 10), bg="#F0F0F0", height=25)
         updated_code.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
 
-        # Enable scrolling for the code views
         scrollbar = tk.Scrollbar(code_frame, orient=tk.VERTICAL, command=original_code.yview)
         scrollbar.grid(row=1, column=2, sticky="ns")
         original_code.config(yscrollcommand=scrollbar.set)
@@ -319,13 +322,11 @@ class CryptoScannerGUI:
         code_frame.grid_columnconfigure(1, weight=1)
         code_frame.grid_rowconfigure(1, weight=1)
 
-        # Load and display the original code
         with open(file, 'r') as f:
             source_code = f.read()
             original_code.insert(tk.END, source_code)
             original_code.config(state=tk.DISABLED)
 
-        # Dropdown for selecting fixes
         tk.Label(modal, text="Select Fix:", font=("Courier", 12)).pack(pady=10)
         fixes = self.fixer.get_fix_options(primitive)
 
@@ -337,14 +338,12 @@ class CryptoScannerGUI:
             fix = selected_fix.get()
             if not fix:
                 return
-
-            # Generate changes and apply them to the original code
             changes = self.fixer.generate_ast_changes(primitive, fix)
             if changes:
                 try:
                     tree = ast.parse(source_code, filename=file)
                     for change in changes:
-                        tree = change(tree)  # Apply each change
+                        tree = change(tree)
                     modified_code = astor.to_source(tree)
 
                     updated_code.config(state=tk.NORMAL)
@@ -359,7 +358,6 @@ class CryptoScannerGUI:
 
         dropdown.bind("<<ComboboxSelected>>", preview_fix)
 
-        # Save changes button
         def save_changes():
             fix = selected_fix.get()
             if not fix:
@@ -371,15 +369,35 @@ class CryptoScannerGUI:
                 try:
                     tree = ast.parse(source_code, filename=file)
                     for change in changes:
-                        tree = change(tree)  # Apply each change
+                        tree = change(tree)
                     modified_code = astor.to_source(tree)
 
+                    # Save the modified code back to the file
                     with open(file, 'w') as f:
                         f.write(modified_code)
-                    messagebox.showinfo("Success", f"Changes saved to {file}.")
+
+                    # Update the status using the DatabaseManager
+                    self.db_manager.update_finding_status(finding_id, 'fixed')
+
+                    # Notify the user and close the modal
+                    messagebox.showinfo("Success", f"Changes saved to {file} and status updated to 'fixed'.")
                     modal.destroy()
+
                 except Exception as e:
                     messagebox.showerror("Error", f"Failed to save changes: {e}")
 
         save_button = tk.Button(modal, text="Save Changes", command=save_changes, font=("Courier", 12))
         save_button.pack(pady=20)
+
+        def revert_changes():
+            original_code_content = self.db_manager.fetch_original_code(finding_id)
+            if original_code_content:
+                with open(file, 'w') as f:
+                    f.write(original_code_content)
+                messagebox.showinfo("Reverted", f"Changes reverted to original code for {file}.")
+                modal.destroy()
+            else:
+                messagebox.showerror("Error", "Original code not found in the database.")
+
+        revert_button = tk.Button(modal, text="Revert Changes", command=revert_changes, font=("Courier", 12), bg="#FF0000", fg="white")
+        revert_button.pack(pady=10)

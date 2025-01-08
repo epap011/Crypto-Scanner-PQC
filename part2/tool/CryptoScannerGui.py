@@ -2,6 +2,9 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from logic import CryptoFixer
 
+import ast
+import astor
+
 class CryptoScannerGUI:
     def __init__(self, root, analyzer, db_manager):
         self.root = root
@@ -281,20 +284,83 @@ class CryptoScannerGUI:
     def show_fix_modal(self, file, primitive, issue):
         modal = tk.Toplevel(self.root)
         modal.title("Fix Cryptographic Issue")
-        modal.geometry("400x300")
+        modal.geometry("800x600")
 
-        tk.Label(modal, text=f"File: {file}").pack(pady=5)
-        tk.Label(modal, text=f"Primitive: {primitive}").pack(pady=5)
-        tk.Label(modal, text=f"Issue: {issue}").pack(pady=5)
+        # Layout for original and updated code side-by-side
+        tk.Label(modal, text=f"File: {file}", font=("Courier", 12)).pack(pady=5)
+        tk.Label(modal, text=f"Primitive: {primitive}", font=("Courier", 12)).pack(pady=5)
+        tk.Label(modal, text=f"Issue: {issue}", font=("Courier", 12)).pack(pady=5)
 
-        tk.Label(modal, text="Select Fix:").pack(pady=10)
+        code_frame = tk.Frame(modal)
+        code_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        original_label = tk.Label(code_frame, text="Original Code", font=("Courier", 12))
+        original_label.grid(row=0, column=0, padx=5, pady=5)
+
+        updated_label = tk.Label(code_frame, text="Updated Code", font=("Courier", 12))
+        updated_label.grid(row=0, column=1, padx=5, pady=5)
+
+        original_code = tk.Text(code_frame, wrap=tk.NONE, font=("Courier", 10), bg="#F0F0F0", height=25)
+        original_code.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+
+        updated_code = tk.Text(code_frame, wrap=tk.NONE, font=("Courier", 10), bg="#F0F0F0", height=25)
+        updated_code.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
+
+        # Enable scrolling for the code views
+        scrollbar = tk.Scrollbar(code_frame, orient=tk.VERTICAL, command=original_code.yview)
+        scrollbar.grid(row=1, column=2, sticky="ns")
+        original_code.config(yscrollcommand=scrollbar.set)
+
+        scrollbar2 = tk.Scrollbar(code_frame, orient=tk.VERTICAL, command=updated_code.yview)
+        scrollbar2.grid(row=1, column=3, sticky="ns")
+        updated_code.config(yscrollcommand=scrollbar2.set)
+
+        code_frame.grid_columnconfigure(0, weight=1)
+        code_frame.grid_columnconfigure(1, weight=1)
+        code_frame.grid_rowconfigure(1, weight=1)
+
+        # Load and display the original code
+        with open(file, 'r') as f:
+            source_code = f.read()
+            original_code.insert(tk.END, source_code)
+            original_code.config(state=tk.DISABLED)
+
+        # Dropdown for selecting fixes
+        tk.Label(modal, text="Select Fix:", font=("Courier", 12)).pack(pady=10)
         fixes = self.fixer.get_fix_options(primitive)
 
         selected_fix = tk.StringVar()
         dropdown = ttk.Combobox(modal, values=fixes, textvariable=selected_fix)
         dropdown.pack(pady=10)
 
-        def apply_fix():
+        def preview_fix(*args):
+            fix = selected_fix.get()
+            if not fix:
+                return
+
+            # Generate changes and apply them to the original code
+            changes = self.fixer.generate_ast_changes(primitive, fix)
+            if changes:
+                try:
+                    tree = ast.parse(source_code, filename=file)
+                    for change in changes:
+                        tree = change(tree)  # Apply each change
+                    modified_code = astor.to_source(tree)
+
+                    updated_code.config(state=tk.NORMAL)
+                    updated_code.delete(1.0, tk.END)
+                    updated_code.insert(tk.END, modified_code)
+                    updated_code.config(state=tk.DISABLED)
+                except Exception as e:
+                    updated_code.config(state=tk.NORMAL)
+                    updated_code.delete(1.0, tk.END)
+                    updated_code.insert(tk.END, f"Error applying fix: {e}")
+                    updated_code.config(state=tk.DISABLED)
+
+        dropdown.bind("<<ComboboxSelected>>", preview_fix)
+
+        # Save changes button
+        def save_changes():
             fix = selected_fix.get()
             if not fix:
                 messagebox.showerror("Error", "Please select a fix.")
@@ -302,13 +368,18 @@ class CryptoScannerGUI:
 
             changes = self.fixer.generate_ast_changes(primitive, fix)
             if changes:
-                result = self.fixer.apply_fix(file, changes)
-                if result is True:
-                    messagebox.showinfo("Success", f"Fix applied to {file}.")
-                    modal.destroy()
-                else:
-                    messagebox.showerror("Error", result)
-            else:
-                messagebox.showwarning("Warning", "No automated fix available. Manual intervention required.")
+                try:
+                    tree = ast.parse(source_code, filename=file)
+                    for change in changes:
+                        tree = change(tree)  # Apply each change
+                    modified_code = astor.to_source(tree)
 
-        tk.Button(modal, text="Apply Fix", command=apply_fix).pack(pady=20)
+                    with open(file, 'w') as f:
+                        f.write(modified_code)
+                    messagebox.showinfo("Success", f"Changes saved to {file}.")
+                    modal.destroy()
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to save changes: {e}")
+
+        save_button = tk.Button(modal, text="Save Changes", command=save_changes, font=("Courier", 12))
+        save_button.pack(pady=20)

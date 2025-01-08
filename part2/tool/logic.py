@@ -592,8 +592,6 @@ class CryptoFixer:
 
             changes.append(replace_prng_with_secrets)
 
-
-        
         # Add Certificate Validation in SSL
         if primitive == "NoCertValidation_SSL" and fix == "Enable certificate validation":
             def enable_cert_validation(tree):
@@ -612,6 +610,64 @@ class CryptoFixer:
                 return EnableCertValidationTransformer().visit(tree)
 
             changes.append(enable_cert_validation)
+
+        if primitive == "Argon2_DefaultParams":
+            def update_argon2_params(tree):
+                class UpdateArgon2ParamsTransformer(ast.NodeTransformer):
+                    def visit_Call(self, node):
+                        # Detect `PasswordHasher()` initialization and update default parameters
+                        if isinstance(node.func, ast.Name) and node.func.id == "PasswordHasher":
+                            # Check for keywords and update if necessary
+                            default_params = {
+                                "time_cost": ast.Constant(value=2),
+                                "memory_cost": ast.Constant(value=65536),
+                                "parallelism": ast.Constant(value=2),
+                            }
+                            existing_args = {kw.arg for kw in node.keywords}
+                            
+                            for param, value in default_params.items():
+                                if param not in existing_args:
+                                    node.keywords.append(ast.keyword(arg=param, value=value))
+                        return self.generic_visit(node)
+
+                return UpdateArgon2ParamsTransformer().visit(tree)
+
+            changes.append(update_argon2_params)
+
+        if primitive == "Argon2_WeakParams":
+            def enforce_strong_argon2_params(tree):
+                class EnforceStrongArgon2ParamsTransformer(ast.NodeTransformer):
+                    def visit_Call(self, node):
+                        # Detect `PasswordHasher()` initialization
+                        if isinstance(node.func, ast.Name) and node.func.id == "PasswordHasher":
+                            # Update or add parameters to meet secure thresholds
+                            secure_params = {
+                                "time_cost": 2,
+                                "memory_cost": 65536,
+                                "parallelism": 2,
+                            }
+
+                            for kw in node.keywords:
+                                if kw.arg in secure_params:
+                                    # Update if the current value is below the threshold
+                                    if (
+                                        isinstance(kw.value, ast.Constant)
+                                        and isinstance(kw.value.value, int)
+                                        and kw.value.value < secure_params[kw.arg]
+                                    ):
+                                        kw.value = ast.Constant(value=secure_params[kw.arg])
+
+                            # Add any missing secure parameters
+                            existing_args = {kw.arg for kw in node.keywords}
+                            for param, value in secure_params.items():
+                                if param not in existing_args:
+                                    node.keywords.append(ast.keyword(arg=param, value=ast.Constant(value=value)))
+
+                        return self.generic_visit(node)
+
+                return EnforceStrongArgon2ParamsTransformer().visit(tree)
+
+            changes.append(enforce_strong_argon2_params)
 
 
         return changes

@@ -108,13 +108,23 @@ class CryptoFixer:
             changes.append(replace_aes_mode)
 
         # Diffie-Hellman: Migrate to PQC
-        if primitive == "Diffie-Hellman" and fix in ["Upgrade to RSA-3072", "Migrate to PQC"]:
+        if primitive == "Diffie-Hellman" and fix == "Upgrade to RSA-3072":
             def upgrade_dh_to_rsa(tree):
-                print("Upgrading Diffie-Hellman to RSA")
                 class UpgradeDHToRSATransformer(ast.NodeTransformer):
                     def visit_Call(self, node):
+                        # Look for calls to dh.generate_parameters
                         if isinstance(node.func, ast.Attribute) and node.func.attr == "generate_parameters":
-                            # Replace Diffie-Hellman parameter generation with RSA private key generation
+                            # Replace with RSA.generate_private_key
+                            return ast.Call(
+                                func=ast.Attribute(value=ast.Name(id="rsa", ctx=ast.Load()), attr="generate_private_key", ctx=ast.Load()),
+                                args=[],
+                                keywords=[
+                                    ast.keyword(arg="public_exponent", value=ast.Constant(value=65537)),
+                                    ast.keyword(arg="key_size", value=ast.Constant(value=3072)),
+                                ]
+                            )
+                        # Replace generate_private_key associated with Diffie-Hellman
+                        if isinstance(node.func, ast.Attribute) and node.func.attr == "generate_private_key":
                             return ast.Call(
                                 func=ast.Attribute(value=ast.Name(id="rsa", ctx=ast.Load()), attr="generate_private_key", ctx=ast.Load()),
                                 args=[],
@@ -129,15 +139,45 @@ class CryptoFixer:
 
             changes.append(upgrade_dh_to_rsa)
 
+        if primitive == "Diffie-Hellman" and fix == "Migrate to PQC":
+            def migrate_to_pqc(tree):
+                class MigrateToPQCTransformer(ast.NodeTransformer):
+                    def visit_Call(self, node):
+                        # Replace calls to dh.generate_parameters with Kyber's generate_keypair
+                        if isinstance(node.func, ast.Attribute) and node.func.attr == "generate_parameters":
+                            return ast.Call(
+                                func=ast.Attribute(value=ast.Name(id="kyber", ctx=ast.Load()), attr="generate_keypair", ctx=ast.Load()),
+                                args=[],
+                                keywords=[]
+                            )
+                        # Replace generate_private_key with the Kyber keypair generation
+                        if isinstance(node.func, ast.Attribute) and node.func.attr == "generate_private_key":
+                            return ast.Call(
+                                func=ast.Attribute(value=ast.Name(id="kyber", ctx=ast.Load()), attr="generate_keypair", ctx=ast.Load()),
+                                args=[],
+                                keywords=[]
+                            )
+                        return node
+
+                return MigrateToPQCTransformer().visit(tree)
+
+            changes.append(migrate_to_pqc)
+
         # RSA: Upgrade to RSA-3072 or Migrate to PQC
         if primitive == "RSA" and fix in ["Upgrade to RSA-3072", "Migrate to PQC"]:
             def upgrade_rsa_key(tree):
                 class UpgradeRSAKeyTransformer(ast.NodeTransformer):
                     def visit_Call(self, node):
                         if isinstance(node.func, ast.Attribute) and node.func.attr == "generate":
+                            # Update the key_size keyword argument to 3072
                             for kw in node.keywords:
                                 if kw.arg == "key_size" and isinstance(kw.value, ast.Constant):
                                     kw.value = ast.Constant(value=3072)
+                            # If key_size is not explicitly provided, add it
+                            if not any(kw.arg == "key_size" for kw in node.keywords):
+                                node.keywords.append(
+                                    ast.keyword(arg="key_size", value=ast.Constant(value=3072))
+                                )
                         return node
 
                 return UpgradeRSAKeyTransformer().visit(tree)
@@ -219,13 +259,17 @@ class CryptoFixer:
             def increase_bcrypt_rounds(tree):
                 class IncreaseBcryptRoundsTransformer(ast.NodeTransformer):
                     def visit_Call(self, node):
+                        # Check if the function call is gensalt
                         if isinstance(node.func, ast.Attribute) and node.func.attr == "gensalt":
                             for kw in node.keywords:
-                                if kw.arg == "rounds" and isinstance(kw.value, ast.Constant) and kw.value.value < 12:
-                                    kw.value = ast.Constant(value=12)  # Set rounds to at least 12
-                        return node
+                                if kw.arg == "rounds" and isinstance(kw.value, ast.Constant):
+                                    # Update rounds to 12 if they are less than 12
+                                    if kw.value.value < 12:
+                                        kw.value = ast.Constant(value=12)
+                        return self.generic_visit(node)  # Continue visiting other nodes
 
                 return IncreaseBcryptRoundsTransformer().visit(tree)
+
 
             changes.append(increase_bcrypt_rounds)
 
@@ -233,19 +277,51 @@ class CryptoFixer:
         if primitive == "Hardcoded_Credentials" and fix == "Move credentials to environment variables":
             def move_credentials_to_env(tree):
                 class MoveCredentialsToEnvTransformer(ast.NodeTransformer):
+                    def __init__(self):
+                        self.import_os_added = False
+
+                    def visit_Import(self, node):
+                        # Check if `os` is already imported
+                        for alias in node.names:
+                            if alias.name == "os":
+                                self.import_os_added = True
+                        return node
+
+                    def visit_Module(self, node):
+                        # Add `import os` if it's not already imported
+                        self.generic_visit(node)
+                        if not self.import_os_added:
+                            import_os = ast.Import(names=[ast.alias(name="os", asname=None)])
+                            node.body.insert(0, import_os)
+                        return node
+
                     def visit_Assign(self, node):
-                        for target in node.targets:
-                            if isinstance(target, ast.Name) and target.id.upper() in ["USERNAME", "PASSWORD"]:
+                        # Detect hardcoded credentials dynamically
+                        if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                            # Use the variable name as the environment variable key
+                            if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+                                variable_name = node.targets[0].id.upper()  # Convert variable name to uppercase for ENV key
+                                original_value = node.value
+
+                                # Replace with os.environ.get
                                 node.value = ast.Call(
-                                    func=ast.Attribute(value=ast.Name(id="os", ctx=ast.Load()), attr="environ.get", ctx=ast.Load()),
-                                    args=[ast.Constant(value=target.id.upper())],
-                                    keywords=[]
+                                    func=ast.Attribute(
+                                        value=ast.Name(id="os", ctx=ast.Load()),
+                                        attr="environ.get",
+                                        ctx=ast.Load(),
+                                    ),
+                                    args=[
+                                        ast.Constant(value=variable_name),  # Environment variable key
+                                        original_value,  # Default value
+                                    ],
+                                    keywords=[],
                                 )
                         return node
 
                 return MoveCredentialsToEnvTransformer().visit(tree)
 
             changes.append(move_credentials_to_env)
+
 
         # Deprecated Protocol: Upgrade to modern protocols like TLS 1.3
         if primitive == "Deprecated Protocol" and fix == "Upgrade to modern protocols like TLS 1.3":

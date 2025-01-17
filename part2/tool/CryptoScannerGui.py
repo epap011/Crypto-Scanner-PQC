@@ -2,6 +2,7 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from logic import CryptoFixer
+from PIL import Image, ImageTk
 
 import ast
 import astor
@@ -13,33 +14,136 @@ class CryptoScannerGUI:
         self.db_manager = db_manager
         self.fixer = CryptoFixer()
 
+        self.active_button = None
+
         self.setup_ui()
 
     def setup_ui(self):
         self.root.title("Cryptographic Scanner")
         self.root.config(bg="#2E2E2E")
-        self.root.geometry("900x600")
+        self.root.geometry("1280x700")
+
+        # Navigation Panel
+        self.navigation_panel = tk.Frame(self.root, bg="#1F1F1F", width=300)
+        self.navigation_panel.pack(side=tk.LEFT, fill=tk.Y)
+
+        # Actions Panel
+        self.actions_panel = tk.Frame(self.root, bg="#3D3D3D", height=80)
+        self.actions_panel.pack(side=tk.TOP, fill=tk.X)
 
         title_label = tk.Label(
-            self.root,
-            text="Cryptographic Scanner",
+            self.navigation_panel,
+            text="Crypto Scanner",
             font=("Courier", 20, "bold"),
             fg="white",
-            bg="#2E2E2E"
+            bg="#1F1F1F"
         )
-        title_label.grid(row=0, column=0, columnspan=3, pady=20)
+        title_label.pack(pady=20, padx=10)
 
-        dir_label = tk.Label(
-            self.root,
-            text="Directory to Scan:",
+        # Navigation Panel Buttons
+        self.add_navigation_button("Home"         , self.show_home_page)
+        self.add_navigation_button("Scan File(s)" , self.show_scan_page)
+
+        # Main Content Panel
+        self.main_content = tk.Frame(self.root, bg="#141410")
+        self.main_content.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+        #configure home button to purple
+        self.active_button = self.navigation_panel.winfo_children()[1]
+        self.handle_nav_button(self.active_button, self.show_home_page)
+    
+    def add_navigation_button(self, text, command):
+        button = tk.Button(
+            self.navigation_panel,
+            text=text,
+            font=("Courier", 12, "bold"),
+            fg="white",
+            bg="#00B140",
+            activebackground="#BF80FF",
+            activeforeground="white",
+            bd=0,
+            relief="flat",
+            command=lambda: self.handle_nav_button(button, command)
+        )
+        button.pack(fill=tk.X, pady=5, padx=10, ipady=10)
+
+    def handle_nav_button(self, button, command):
+        if self.active_button:
+            self.active_button.configure(bg="#00B140")
+
+        button.configure(bg="#9900E6")
+        self.active_button = button
+
+        command()
+
+    def clear_main_content(self):
+        for widget in self.main_content.winfo_children():
+            widget.destroy()
+        
+        for widget in self.actions_panel.winfo_children():
+            widget.destroy()
+
+    def show_home_page(self):
+        self.clear_main_content()
+
+        tk.Label(
+            self.main_content,
+            text="Welcome to Crypto Scanner",
+            font=("Courier", 16),
+            fg="white",
+            bg="#2E2E2E"
+        ).pack(pady=20)
+
+        tk.Label(
+            self.main_content,
+            text="This tool helps you identify and fix cryptographic issues in your Python code.",
             font=("Courier", 12),
             fg="white",
             bg="#2E2E2E"
+        ).pack(pady=10)
+
+        tk.Label(
+            self.main_content,
+            text="Use the navigation panel on the left to get started.",
+            font=("Courier", 12),
+            fg="white",
+            bg="#2E2E2E"
+        ).pack(pady=10)
+        
+        self.main_content.update_idletasks()
+        frame_width = self.main_content.winfo_width()
+        frame_height = self.main_content.winfo_height()
+
+        try:
+            image = Image.open("hand.jpg")
+            if frame_width > 0 and frame_height > 0:
+                image = image.resize((min(image.width, frame_width), min(image.height, frame_height)))
+            self.photo = ImageTk.PhotoImage(image)
+            image_label = tk.Label(self.main_content, image=self.photo)
+            image_label.pack(pady=10)
+        except Exception as e:
+            tk.Label(
+                self.main_content,
+                text=f"Error loading image: {e}",
+                font=("Courier", 12),
+                fg="red",
+                bg="#F5F5F5"
+            ).pack(pady=10)
+
+    def show_scan_page(self):
+        self.clear_main_content()
+
+        dir_label = tk.Label(
+            self.actions_panel,
+            text="Directory to Scan:",
+            font=("Courier", 12),
+            fg="white",
+            bg="#3D3D3D"
         )
-        dir_label.grid(row=1, column=0, padx=10, pady=10, sticky="e")
+        dir_label.grid(row=0, column=0, padx=10, pady=10, sticky="e")
 
         self.directory_entry = tk.Entry(
-            self.root,
+            self.actions_panel,
             width=50,
             font=("Courier", 12),
             fg="black",
@@ -47,10 +151,10 @@ class CryptoScannerGUI:
             bd=0,
             relief="flat"
         )
-        self.directory_entry.grid(row=1, column=1, padx=10, pady=10, ipadx=5, ipady=5)
+        self.directory_entry.grid(row=0, column=1, padx=10, pady=10, ipadx=5, ipady=5)
 
         browse_button = tk.Button(
-            self.root,
+            self.actions_panel,
             text="Browse",
             font=("Courier", 12),
             fg="white",
@@ -61,10 +165,10 @@ class CryptoScannerGUI:
             relief="flat",
             command=self.browse_directory
         )
-        browse_button.grid(row=1, column=2, padx=10, pady=10, ipadx=5, ipady=5)
+        browse_button.grid(row=0, column=2, padx=10, pady=10, ipadx=5, ipady=5)
 
         scan_button = tk.Button(
-            self.root,
+            self.actions_panel,
             text="Run Scan",
             font=("Courier", 12, "bold"),
             fg="white",
@@ -73,58 +177,53 @@ class CryptoScannerGUI:
             activeforeground="white",
             bd=0,
             relief="flat",
-            command=self.run_scan
+            command=self.run_scan_and_view_results
         )
-        scan_button.grid(row=2, column=0, padx=20, pady=20, ipadx=20, ipady=10)
+        scan_button.grid(row=0, column=3, padx=10, pady=10, ipadx=5, ipady=5)
 
-        view_button = tk.Button(
-            self.root,
-            text="View Results",
+    def show_database_page(self):
+        self.clear_main_content()
+
+        tk.Label(
+            self.main_content,
+            text="Database Management",
+            font=("Courier", 16),
+            bg="#F5F5F5"
+        ).pack(pady=20)
+
+        import_button = tk.Button(
+            self.main_content,
+            text="Import Database",
             font=("Courier", 12),
-            fg="white",
-            bg="#3F51B5",
-            activebackground="#5C6BC0",
-            activeforeground="white",
-            bd=0,
-            relief="flat",
-            command=self.view_results
+            command=self.import_database
         )
-        view_button.grid(row=2, column=1, padx=20, pady=20, ipadx=20, ipady=10)
+        import_button.pack(pady=10)
 
         export_button = tk.Button(
-            self.root,
-            text="Export to CSV",
+            self.main_content,
+            text="Export Database",
             font=("Courier", 12),
-            fg="white",
-            bg="#FF9800",
-            activebackground="#FFC107",
-            activeforeground="white",
-            bd=0,
-            relief="flat",
-            command=self.export_to_csv
+            command=self.export_database
         )
-        export_button.grid(row=2, column=2, padx=20, pady=20, ipadx=20, ipady=10)
+        export_button.pack(pady=10)
 
-        self.status_label = tk.Label(
-            self.root,
-            text="Status: Ready",
-            font=("Courier", 10),
-            fg="white",
-            bg="#2E2E2E"
+        clear_button = tk.Button(
+            self.main_content,
+            text="Clear Database",
+            font=("Courier", 12),
+            command=self.clear_database
         )
-        self.status_label.grid(row=3, column=0, columnspan=3, pady=10)
-
-        for row in range(4):
-            self.root.grid_rowconfigure(row, weight=1, minsize=50)
-
-        for col in range(3):
-            self.root.grid_columnconfigure(col, weight=1, minsize=150)
+        clear_button.pack(pady=10)
 
     def browse_directory(self):
         folder_selected = filedialog.askdirectory()
         if folder_selected:
             self.directory_entry.delete(0, tk.END)
             self.directory_entry.insert(0, folder_selected)
+
+    def run_scan_and_view_results(self):
+        self.run_scan()
+        self.view_results()
 
     def run_scan(self):
         directory = self.directory_entry.get()
@@ -135,7 +234,6 @@ class CryptoScannerGUI:
         findings = self.analyzer.scan_directory(directory)
         prioritized_findings = self.analyzer.prioritize_findings(findings)
         self.db_manager.save_findings(prioritized_findings)
-        messagebox.showinfo("Scan Complete", f"Scan completed for directory: {directory}")
 
     def export_to_csv(self):
         self.db_manager.export_findings_to_csv()
@@ -170,7 +268,7 @@ class CryptoScannerGUI:
             medium_count   = sum(1 for row in filtered_rows if row[5] == 'Medium')
             low_count      = sum(1 for row in filtered_rows if row[5] == 'Low')
 
-            auto_fix_count = sum(1 for row in filtered_rows if self.fixer.get_fix_options(row[2]) != ["Manual Fix Required"])
+            auto_fix_count   = sum(1 for row in filtered_rows if self.fixer.get_fix_options(row[2]) != ["Manual Fix Required"])
             manual_fix_count = sum(1 for row in filtered_rows if self.fixer.get_fix_options(row[2]) == ["Manual Fix Required"])
 
             critical_label.config(text=f"Critical: {critical_count}")
@@ -181,11 +279,7 @@ class CryptoScannerGUI:
             auto_fix_label.config(text=f"Automatic Fix Exists: {auto_fix_count}")
             manual_fix_label.config(text=f"Manual Intervention Required: {manual_fix_count}")
 
-        result_window = tk.Toplevel(self.root)
-        result_window.title("Scan Results")
-        result_window.geometry("1000x600")
-
-        search_frame = tk.Frame(result_window)
+        search_frame = tk.Frame(self.main_content, bg="#3D3D3D")
         search_frame.pack(fill=tk.X, padx=10, pady=5)
 
         search_label = tk.Label(search_frame, text="Search:", font=("Courier", 12))
@@ -195,29 +289,29 @@ class CryptoScannerGUI:
         search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
         search_entry.bind("<KeyRelease>", search_results)
 
-        stats_frame = tk.Frame(result_window)
+        stats_frame = tk.Frame(self.main_content, bg="#3D3D3D")
         stats_frame.pack(fill=tk.X, padx=10, pady=5)
 
-        critical_label = tk.Label(stats_frame, text="Critical: 0", font=("Courier", 12), fg="#FF0000")
+        critical_label = tk.Label(stats_frame, text="Critical: 0", font=("Courier", 12), fg="#FF0000", bg="#3D3D3D")
         critical_label.pack(side=tk.LEFT, padx=(0, 15))
 
-        high_label = tk.Label(stats_frame, text="High: 0", font=("Courier", 12), fg="#FFA500")
+        high_label = tk.Label(stats_frame, text="High: 0", font=("Courier", 12), fg="#FFA500", bg="#3D3D3D")
         high_label.pack(side=tk.LEFT, padx=(0, 15))
 
-        medium_label = tk.Label(stats_frame, text="Medium: 0", font=("Courier", 12), fg="#42b357")
+        medium_label = tk.Label(stats_frame, text="Medium: 0", font=("Courier", 12), fg="#42b357", bg="#3D3D3D")
         medium_label.pack(side=tk.LEFT, padx=(0, 15))
 
-        low_label = tk.Label(stats_frame, text="Low: 0", font=("Courier", 12), fg="#407fc2")
+        low_label = tk.Label(stats_frame, text="Low: 0", font=("Courier", 12), fg="#407fc2", bg="#3D3D3D")
         low_label.pack(side=tk.LEFT, padx=(0, 15))
 
-        auto_fix_label = tk.Label(stats_frame, text="Automatic Fix Exists: 0", font=("Courier", 12), fg="#008000")
+        auto_fix_label = tk.Label(stats_frame, text="Automatic Fix Exists: 0", font=("Courier", 12), fg="#008000", bg="#3D3D3D")
         auto_fix_label.pack(side=tk.RIGHT, padx=(15, 0))
 
-        manual_fix_label = tk.Label(stats_frame, text="Manual Intervention Required: 0", font=("Courier", 12), fg="#FF4500")
+        manual_fix_label = tk.Label(stats_frame, text="Manual Intervention Required: 0", font=("Courier", 12), fg="#FF4500", bg="#3D3D3D")
         manual_fix_label.pack(side=tk.RIGHT, padx=(15, 0))
 
         tree = ttk.Treeview(
-            result_window,
+            self.main_content,
             columns=("ID", "File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Status"),
             show='headings'
         )
@@ -264,9 +358,7 @@ class CryptoScannerGUI:
             status = row[9]
             tag = severity
             treeview.insert("", tk.END, values=(finding_id, row[1], row[2], row[4], row[5], row[6], fix_type, status),tags=(tag,) )
-            
-
-            
+                      
     def fix_selected_file(self, tree):
         selected_item = tree.selection()
         if not selected_item:

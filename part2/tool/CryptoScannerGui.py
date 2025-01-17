@@ -1,6 +1,7 @@
 # CryptoScannerGui.py
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+from tkinter import simpledialog
 from logic import CryptoFixer
 from PIL import Image, ImageTk
 
@@ -28,7 +29,7 @@ class CryptoScannerGUI:
         self.navigation_panel.pack(side=tk.LEFT, fill=tk.Y)
 
         # Actions Panel
-        self.actions_panel = tk.Frame(self.root, bg="#3D3D3D", height=80)
+        self.actions_panel = tk.Frame(self.root, bg="#3D3D3D", height=120)
         self.actions_panel.pack(side=tk.TOP, fill=tk.X)
 
         title_label = tk.Label(
@@ -41,8 +42,8 @@ class CryptoScannerGUI:
         title_label.pack(pady=20, padx=10)
 
         # Navigation Panel Buttons
-        self.add_navigation_button("Home"         , self.show_home_page)
-        self.add_navigation_button("Scan File(s)" , self.show_scan_page)
+        self.add_navigation_button("Home"    , self.show_home_page)
+        self.add_navigation_button("New Case", self.show_new_case_page)
 
         # Main Content Panel
         self.main_content = tk.Frame(self.root, bg="#141410")
@@ -87,7 +88,7 @@ class CryptoScannerGUI:
         self.clear_main_content()
 
         tk.Label(
-            self.main_content,
+            self.actions_panel,
             text="Welcome to Crypto Scanner",
             font=("Courier", 16),
             fg="white",
@@ -95,7 +96,7 @@ class CryptoScannerGUI:
         ).pack(pady=20)
 
         tk.Label(
-            self.main_content,
+            self.actions_panel,
             text="This tool helps you identify and fix cryptographic issues in your Python code.",
             font=("Courier", 12),
             fg="white",
@@ -103,7 +104,7 @@ class CryptoScannerGUI:
         ).pack(pady=10)
 
         tk.Label(
-            self.main_content,
+            self.actions_panel,
             text="Use the navigation panel on the left to get started.",
             font=("Courier", 12),
             fg="white",
@@ -130,33 +131,26 @@ class CryptoScannerGUI:
                 bg="#F5F5F5"
             ).pack(pady=10)
 
-    def show_scan_page(self):
+    def show_new_case_page(self):
         self.clear_main_content()
-
-        dir_label = tk.Label(
-            self.actions_panel,
-            text="Directory to Scan:",
-            font=("Courier", 12),
-            fg="white",
-            bg="#3D3D3D"
-        )
-        dir_label.grid(row=0, column=0, padx=10, pady=10, sticky="e")
 
         self.directory_entry = tk.Entry(
             self.actions_panel,
-            width=50,
-            font=("Courier", 12),
+            width=30,
+            font=("Courier", 10),
             fg="black",
             bg="#C0C0C0",
             bd=0,
             relief="flat"
         )
-        self.directory_entry.grid(row=0, column=1, padx=10, pady=10, ipadx=5, ipady=5)
+        self.directory_entry.grid(row=1, column=1, padx=10, pady=10, ipadx=5, ipady=5)
+        self.directory_entry.insert(0, "Select a directory to scan...")
 
         browse_button = tk.Button(
             self.actions_panel,
             text="Browse",
-            font=("Courier", 12),
+            font=("Courier", 10, "bold"),
+            height=1,
             fg="white",
             bg="#00B140",
             activebackground="#4CAF50",
@@ -165,12 +159,12 @@ class CryptoScannerGUI:
             relief="flat",
             command=self.browse_directory
         )
-        browse_button.grid(row=0, column=2, padx=10, pady=10, ipadx=5, ipady=5)
+        browse_button.grid(row=1, column=2, padx=10, pady=10, ipadx=5, ipady=5)
 
         scan_button = tk.Button(
             self.actions_panel,
             text="Run Scan",
-            font=("Courier", 12, "bold"),
+            font=("Courier", 10, "bold"),
             fg="white",
             bg="#FF5722",
             activebackground="#FF7043",
@@ -179,7 +173,21 @@ class CryptoScannerGUI:
             relief="flat",
             command=self.run_scan_and_view_results
         )
-        scan_button.grid(row=0, column=3, padx=10, pady=10, ipadx=5, ipady=5)
+        scan_button.grid(row=1, column=3, padx=10, pady=10, ipadx=5, ipady=5)
+
+        # save_button = tk.Button(
+        #     self.actions_panel,
+        #     text="Save Case",
+        #     font=("Courier", 10, "bold"),
+        #     fg="white",
+        #     bg="#2372f7",
+        #     activebackground="#69a1ff",
+        #     activeforeground="white",
+        #     bd=0,
+        #     relief="flat",
+        #     command=self.save_case
+        # )
+        # save_button.grid(row=1, column=4, padx=10, pady=10, ipadx=5, ipady=5)
 
     def show_database_page(self):
         self.clear_main_content()
@@ -215,6 +223,45 @@ class CryptoScannerGUI:
         )
         clear_button.pack(pady=10)
 
+    def save_case(self):
+        case_name = simpledialog.askstring("Save Case", "Enter a name for this case:")
+        if not case_name:
+            messagebox.showerror("Error", "Case name cannot be empty.")
+            return
+
+        try:
+            findings = self.analyzer.get_recent_findings()
+            self.db_manager.save_case(case_name, findings)
+            messagebox.showinfo("Success", f"Case '{case_name}' saved successfully.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save case: {e}")
+
+    def show_case(self):
+        case_name = self.active_button.cget("text")
+        findings = self.db_manager.fetch_case_findings(case_name)
+
+        if not findings:
+            messagebox.showinfo("No Findings", "No findings found for this case.")
+            return
+
+        self.clear_main_content()
+
+        tk.Label(
+            self.main_content,
+            text=f"Case: {case_name}",
+            font=("Courier", 16),
+            bg="#F5F5F5"
+        ).pack(pady=20)
+
+        for finding in findings:
+            finding_label = tk.Label(
+                self.main_content,
+                text=f"{finding['file']} - {finding['primitive']} - {finding['issue']}",
+                font=("Courier", 12),
+                bg="#F5F5F5"
+            )
+            finding_label.pack(pady=5)
+            
     def browse_directory(self):
         folder_selected = filedialog.askdirectory()
         if folder_selected:

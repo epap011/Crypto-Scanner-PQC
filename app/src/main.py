@@ -1,7 +1,6 @@
-# main.py
-from CryptoScannerGui import CryptoScannerGUI
-from DatabaseManager import DatabaseManager
-from CryptoAnalyzer import CryptoAnalyzer
+from gui.base_gui import CryptoScannerApp
+from core.analyzer import CryptoAnalyzer
+from core.database_manager import DatabaseManager
 import tkinter as tk
 
 # Define cryptographic patterns
@@ -210,10 +209,10 @@ deprecated_apis = {
 }
 
 # Initialize components
-db_manager = DatabaseManager()
+db_manager      = DatabaseManager()
 crypto_analyzer = CryptoAnalyzer(patterns, rules, deprecated_apis, mosca_params=(10, 5, 15))
 
 # Start GUI
 root = tk.Tk()
-app = CryptoScannerGUI(root, crypto_analyzer, db_manager)
+app = CryptoScannerApp(root, crypto_analyzer, db_manager)
 root.mainloop()

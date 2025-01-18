@@ -3,6 +3,7 @@ import sqlite3
 import csv
 from tkinter import filedialog, messagebox
 import datetime
+import os
 
 class DatabaseManager:
     def __init__(self, db_name="crypto_findings.db"):
@@ -12,6 +13,10 @@ class DatabaseManager:
         hour = now.strftime("%H-%M-%S")
         db_name = date + "-" + hour + "-" + db_name
         self.db_name = path + db_name
+
+        if not os.path.exists(path):
+            os.makedirs(path)
+
         self.initialize_database()
 
     def initialize_database(self):

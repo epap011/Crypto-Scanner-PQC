@@ -6,6 +6,8 @@ from core.logic import CryptoFixer
 from matplotlib.figure import Figure 
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
 import matplotlib.pyplot as plt 
+import ast
+import astor
 
 class NewCasePage:
     def __init__(self, parent_panel):

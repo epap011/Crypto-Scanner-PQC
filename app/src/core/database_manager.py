@@ -2,10 +2,21 @@
 import sqlite3
 import csv
 from tkinter import filedialog, messagebox
+import datetime
+import os
 
 class DatabaseManager:
     def __init__(self, db_name="crypto_findings.db"):
-        self.db_name = db_name
+        path = "../data/databases/"
+        now = datetime.datetime.now()
+        date = now.strftime("%Y-%m-%d")
+        hour = now.strftime("%H-%M-%S")
+        db_name = date + "-" + hour + "-" + db_name
+        self.db_name = path + db_name
+
+        if not os.path.exists(path):
+            os.makedirs(path)
+
         self.initialize_database()
 
     def initialize_database(self):
@@ -93,6 +104,21 @@ class DatabaseManager:
         rows = cursor.fetchall()
         conn.close()
         return rows
+
+    def save_case_to_txt(self, case):
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("Text files", "*.txt")],
+            title="Save Test Case as TXT"
+        )
+        if file_path:
+            with open(file_path, 'w', encoding='utf-8') as file:
+                file.write(case)
+            messagebox.showinfo("Save Complete", f"Test case saved to {file_path}.")
+    
+    def fetch_all_cases(self):
+        results = ["Case 1, Case 2, Case 3, Case 4, Case 5, Case 6, Case 7, Case 8, Case 9, Case 10"]
+        return results
 
     def export_findings_to_csv(self):
         conn = sqlite3.connect(self.db_name)

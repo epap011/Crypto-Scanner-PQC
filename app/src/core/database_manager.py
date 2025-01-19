@@ -202,3 +202,25 @@ class DatabaseManager:
         row = cursor.fetchone()
         conn.close()
         return row[0] if row else None
+
+    def clear_database(self):
+        try:
+            conn = sqlite3.connect(self.db_name)
+            cursor = conn.cursor()
+            cursor.execute("DROP TABLE IF EXISTS cases")
+            cursor.execute("DROP TABLE IF EXISTS findings")
+            cursor.execute("DROP TABLE IF EXISTS fix_history")
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS cases (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT UNIQUE,
+                    folder_path TEXT,
+                    created_at TEXT
+                )
+            """)
+            conn.commit()
+            print("Database contents cleared successfully.")
+        except sqlite3.Error as e:
+            print(f"Error clearing database contents: {e}")
+        finally:
+            conn.close()

@@ -109,7 +109,7 @@ class NewCasePage:
 
         findings = self.analyzer.scan_directory(directory)
         prioritized_findings = self.analyzer.prioritize_findings(findings)
-        self.db_manager.save_findings(prioritized_findings)
+        self.db_manager.store_case(folder_path=directory, findings=prioritized_findings, case_name="Case 1")
 
     def view_results(self):
         rows = self.db_manager.fetch_all_findings()

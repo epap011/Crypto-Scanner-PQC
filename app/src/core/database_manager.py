@@ -7,16 +7,15 @@ import os
 import logging
 
 class DatabaseManager:
-    def __init__(self, db_name="case_collection.db"):
+    def __init__(self, db_name="case_database.db"):        
         path = "../data/databases/"
-        now = datetime.datetime.now()
-        date = now.strftime("%Y-%m-%d")
-        hour = now.strftime("%H-%M-%S")
-        db_name = date + "-" + hour + "-" + db_name
-        self.db_name = path + db_name
+        self.db_name = os.path.join(path, db_name)
 
         if not os.path.exists(path):
             os.makedirs(path)
+
+        if os.path.exists(self.db_name):
+            return
 
         self.initialize_database()
 

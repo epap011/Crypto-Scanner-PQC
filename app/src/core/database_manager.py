@@ -44,6 +44,8 @@ class DatabaseManager:
         :param findings: List of findings to save.
         :param case_name: Optional case name. If not provided, a unique name will be generated.
         """
+        print("folder_path", folder_path)
+        print("case_name", case_name)
         if case_name is None:
             now = datetime.datetime.now()
             case_name = f"case_{now.strftime('%Y%m%d_%H%M%S')}"

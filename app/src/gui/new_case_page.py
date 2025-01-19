@@ -8,6 +8,7 @@ from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationTool
 import matplotlib.pyplot as plt 
 import ast
 import astor
+import random
 
 class NewCasePage:
     def __init__(self, parent_panel):
@@ -109,7 +110,10 @@ class NewCasePage:
 
         findings = self.analyzer.scan_directory(directory)
         prioritized_findings = self.analyzer.prioritize_findings(findings)
-        self.db_manager.store_case(folder_path=directory, findings=prioritized_findings, case_name="Case 1")
+
+        # random case name
+        case_name = random.choice(["Case 1", "Case 2", "Case 3", "Case 4", "Case 5", "Case 6", "Case 7", "Case 8", "Case 9", "Case 10"])
+        self.db_manager.store_case(folder_path=directory, findings=prioritized_findings, case_name=case_name)
 
     def view_results(self):
         rows = self.db_manager.fetch_all_findings()

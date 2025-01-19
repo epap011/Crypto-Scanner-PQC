@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import messagebox, filedialog
-import os
 
 class DatabaseManagementPage:
     def __init__(self, parent, db_manager):
@@ -10,7 +9,7 @@ class DatabaseManagementPage:
     def show(self):
         self.active_db_label = tk.Label(
             self.parent,
-            text=f"Active Database: poutses.db",
+            text=f"Active Database: database.db",
             font=("Courier", 14),
             fg="white",
             bg="#2E2E2E"
@@ -39,6 +38,17 @@ class DatabaseManagementPage:
         )
         clear_button.grid(row=0, column=0, padx=10)
 
+        export_button = tk.Button(
+            button_frame,
+            text="Export Database",
+            command=self.export_database,
+            font=("Courier", 12),
+            bg="#4D79FF",
+            fg="white",
+            width=15
+        )
+        export_button.grid(row=0, column=1, padx=10)
+
     def clear_database(self):
         confirm = messagebox.askyesno(
             "Confirm Clear",
@@ -47,3 +57,14 @@ class DatabaseManagementPage:
         if confirm:
             self.db_manager.clear_database()
             messagebox.showinfo("Success", "Database cleared successfully!")
+
+    def export_database(self):
+        """Exports the active database to a user-specified location."""
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".db",
+            filetypes=[("Database Files", "*.db"), ("All Files", "*.*")],
+            title="Export Database"
+        )
+        if file_path:
+            self.db_manager.export_database(file_path)
+            messagebox.showinfo("Success", f"Database exported to {file_path}!")

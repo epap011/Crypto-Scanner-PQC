@@ -224,3 +224,12 @@ class DatabaseManager:
             print(f"Error clearing database contents: {e}")
         finally:
             conn.close()
+    
+    def export_database(self, file_path):
+        try:
+            with open(self.db_name, 'rb') as source:
+                with open(file_path, 'wb') as dest:
+                    dest.write(source.read())
+            print(f"Database exported to {file_path}")
+        except Exception as e:
+            print(f"Error exporting database: {e}")

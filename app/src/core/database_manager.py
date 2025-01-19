@@ -110,6 +110,14 @@ class DatabaseManager:
 
         logging.info(f"Scan results saved under case: {case_name}")
 
+    def get_cases(self):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM cases")
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
     def fetch_all_findings(self):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()

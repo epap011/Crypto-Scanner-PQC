@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 
 # Data for the budget allocation
 phases = ["Phase 1: Immediate Fixes", "Phase 2: Intermediate Remediations", "Phase 3: PQC Migration"]
-budgets = [1500, 3000, 5500]  # Example costs in dollars
+budgets = [1500, 3000, 4500] 
 
 # Create the pie chart
 fig, ax = plt.subplots()

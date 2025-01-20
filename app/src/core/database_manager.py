@@ -4,27 +4,79 @@ import csv
 from tkinter import filedialog, messagebox
 import datetime
 import os
+import logging
 
 class DatabaseManager:
-    def __init__(self, db_name="crypto_findings.db"):
+    def __init__(self, db_name="case_database.db"):        
         path = "../data/databases/"
-        now = datetime.datetime.now()
-        date = now.strftime("%Y-%m-%d")
-        hour = now.strftime("%H-%M-%S")
-        db_name = date + "-" + hour + "-" + db_name
-        self.db_name = path + db_name
+        self.db_name = os.path.join(path, db_name)
 
         if not os.path.exists(path):
             os.makedirs(path)
 
+        if os.path.exists(self.db_name):
+            return
+
         self.initialize_database()
 
     def initialize_database(self):
+        conn   = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS cases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE,
+                folder_path TEXT,
+                created_at TEXT
+            )
+        """)
+    
+        conn.commit()
+        conn.close()
+
+    def store_case(self, folder_path, findings, case_name=None):
+        """
+        Save scan results to the database, associating them with a specific case.
+
+        :param folder_path: Path to the scanned folder.
+        :param findings: List of findings to save.
+        :param case_name: Optional case name. If not provided, a unique name will be generated.
+        """
+        print("folder_path", folder_path)
+        print("case_name", case_name)
+        if case_name is None:
+            now = datetime.datetime.now()
+            case_name = f"case_{now.strftime('%Y%m%d_%H%M%S')}"
+
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
+
+        # Ensure the cases metadata table exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS cases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE,
+                folder_path TEXT,
+                created_at TEXT
+            )
+        """)
+
+        # Insert or update the case metadata
+        cursor.execute("""
+            INSERT OR IGNORE INTO cases (name, folder_path, created_at)
+            VALUES (?, ?, ?)
+        """, (case_name, folder_path, datetime.datetime.now()))
+
+        # Retrieve the case_id for foreign key reference
+        cursor.execute("SELECT id FROM cases WHERE name = ?", (case_name,))
+        case_id = cursor.fetchone()[0]
+
+        # Ensure the unified findings table exists
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS findings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                case_id INTEGER,
                 file TEXT,
                 primitive TEXT,
                 parameters TEXT,
@@ -34,65 +86,38 @@ class DatabaseManager:
                 quantum_vulnerable BOOLEAN,
                 mosca_urgent BOOLEAN,
                 status TEXT DEFAULT 'not_fixed',
-                UNIQUE(file, primitive, parameters)
+                FOREIGN KEY (case_id) REFERENCES cases(id)
             )
         """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS fix_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                finding_id INTEGER,
-                original_code TEXT,
-                file TEXT,
-                FOREIGN KEY (finding_id) REFERENCES findings(id)
-            )
-        """)
-        conn.commit()
-        conn.close()
 
-    def save_findings(self, findings):
-        conn = sqlite3.connect(self.db_name)
-        cursor = conn.cursor()
+        # Save findings associated with this case
         for finding in findings:
-            parameters = finding['parameters'] if finding['parameters'] else ""
+            parameters = finding.get('parameters', "")
             try:
-                # Insert the finding into the findings table
                 cursor.execute("""
-                    INSERT OR IGNORE INTO findings 
-                    (file, primitive, parameters, issue, severity, suggestion, quantum_vulnerable, mosca_urgent, status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO findings 
+                    (case_id, file, primitive, parameters, issue, severity, suggestion, quantum_vulnerable, mosca_urgent, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    finding['file'], finding['primitive'], parameters,
+                    case_id, finding['file'], finding['primitive'], parameters,
                     finding['issue'], finding['severity'], finding['suggestion'],
                     finding['quantum_vulnerable'], finding['mosca_urgent'], 'not_fixed'
                 ))
-
-                # Get the ID of the inserted or existing finding
-                cursor.execute("SELECT id FROM findings WHERE file = ? AND primitive = ? AND parameters = ?", 
-                            (finding['file'], finding['primitive'], parameters))
-                finding_id = cursor.fetchone()[0]
-
-                # Check if the original code is already stored in fix_history
-                cursor.execute("SELECT COUNT(*) FROM fix_history WHERE finding_id = ?", (finding_id,))
-                if cursor.fetchone()[0] == 0:
-                    # Read the original code from the file
-                    try:
-                        with open(finding['file'], 'r') as f:
-                            original_code = f.read()
-                        
-                        # Insert the original code into the fix_history table
-                        cursor.execute("""
-                            INSERT INTO fix_history (finding_id, original_code, file)
-                            VALUES (?, ?, ?)
-                        """, (finding_id, original_code, finding['file']))
-                    except FileNotFoundError:
-                        logging.warning(f"File not found: {finding['file']}")
-                    except Exception as e:
-                        logging.error(f"Error reading file {finding['file']}: {e}")
-
             except sqlite3.IntegrityError:
                 logging.warning(f"Duplicate finding detected: {finding}")
+
         conn.commit()
         conn.close()
+
+        logging.info(f"Scan results saved under case: {case_name}")
+
+    def get_cases(self):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM cases")
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
 
     def fetch_all_findings(self):
         conn = sqlite3.connect(self.db_name)
@@ -176,3 +201,42 @@ class DatabaseManager:
         row = cursor.fetchone()
         conn.close()
         return row[0] if row else None
+
+    def clear_database(self):
+        try:
+            conn = sqlite3.connect(self.db_name)
+            cursor = conn.cursor()
+            cursor.execute("DROP TABLE IF EXISTS cases")
+            cursor.execute("DROP TABLE IF EXISTS findings")
+            cursor.execute("DROP TABLE IF EXISTS fix_history")
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS cases (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT UNIQUE,
+                    folder_path TEXT,
+                    created_at TEXT
+                )
+            """)
+            conn.commit()
+            print("Database contents cleared successfully.")
+        except sqlite3.Error as e:
+            print(f"Error clearing database contents: {e}")
+        finally:
+            conn.close()
+    
+    def export_database(self, file_path):
+        try:
+            with open(self.db_name, 'rb') as source:
+                with open(file_path, 'wb') as dest:
+                    dest.write(source.read())
+            print(f"Database exported to {file_path}")
+        except Exception as e:
+            print(f"Error exporting database: {e}")
+
+    def delete_case(self, case_id):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM cases WHERE id = ?", (case_id,))
+        cursor.execute("DELETE FROM findings WHERE case_id = ?", (case_id,))
+        conn.commit()
+        conn.close()

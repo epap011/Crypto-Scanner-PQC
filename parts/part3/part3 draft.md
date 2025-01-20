@@ -5,19 +5,19 @@ This report outlines a detailed migration plan for addressing cryptographic vuln
 
 ---
 
-## 1. Findings Summary (Revised and Detailed)
+## 1. Findings Summary
 
 The cryptographic scan conducted in **Part 2** analyzed a total of **72 vulnerabilities** across Python source code files. These vulnerabilities were identified and categorized based on their severity, quantum vulnerability status, and specific cryptographic primitives or configurations used.
 
 ### **Total Files and Vulnerabilities**
-- **Number of Files Scanned**: 72 (Python Files Only)
+- **Number of Files Scanned**: 42 (Python Files Only)
 - **Total Vulnerabilities Identified**: 72
-  - **Critical Issues**: 49
-  - **High Issues**: 6
-  - **Medium Issues**: 12
+  - **Critical Issues**: 54
+  - **High Issues**: 5
+  - **Medium Issues**: 13
 
 ### **Breakdown by Severity**
-- **Critical Issues (68% of findings)**: These vulnerabilities pose immediate risks to the confidentiality, integrity, or availability of the system and must be addressed as a top priority. Examples include:
+- **Critical Issues (75% of findings)**: These vulnerabilities pose immediate risks to the confidentiality, integrity, or availability of the system and must be addressed as a top priority. Examples include:
   - **Outdated Cryptographic Primitives**:
     - Use of MD5 and SHA-1 for hashing.
     - DES and RC4 for encryption.
@@ -29,11 +29,11 @@ The cryptographic scan conducted in **Part 2** analyzed a total of **72 vulnerab
   - **Deprecated Protocols**:
     - Use of SSLv3 and TLSv1.0.
 
-- **High Issues (8% of findings)**: These vulnerabilities relate to quantum vulnerability or deprecated practices that, while not immediately critical, require significant remediation. Examples include:
+- **High Issues (7% of findings)**: These vulnerabilities relate to quantum vulnerability or deprecated practices that, while not immediately critical, require significant remediation. Examples include:
   - Use of **deprecated ECC curves** (e.g., SECP192R1).
   - Quantum vulnerability in RSA-2048 and ECDH key exchanges.
 
-- **Medium Issues (24% of findings)**: These issues involve weak parameterization or general warnings for cryptographic usage. While not immediately exploitable, they weaken overall system security. Examples include:
+- **Medium Issues (18% of findings)**: These issues involve weak parameterization or general warnings for cryptographic usage. While not immediately exploitable, they weaken overall system security. Examples include:
   - Default parameters in **Argon2** and **bcrypt**.
   - Generic usage of cryptographic libraries requiring review.
 
@@ -60,8 +60,6 @@ Remediation efforts, as outlined in the migration roadmap, aim to:
 - **Eliminate 100% of critical vulnerabilities** through immediate fixes in Phase 1.
 - **Address all quantum-vulnerable issues** by transitioning to post-quantum cryptography in Phase 3.
 - **Achieve compliance** with cryptographic standards such as **NIST SP 800-57**, **NIST PQC standards**, and **ENISA PQC guidelines**.
-
-By directly referencing the Python-based vulnerabilities identified in Part 2, this section ties findings to the migration strategy and ensures a focused and actionable plan.
 
 To provide a clear overview of the vulnerabilities detected during the cryptographic inventory scan, the following table summarizes the issues identified in each Python file. 
 
@@ -173,10 +171,75 @@ The roadmap provides a phased plan for addressing vulnerabilities.
 ### **Impact of Constraints**
 Due to budgetary limitations and reliance on legacy systems, prioritization of vulnerabilities was necessary to maximize security improvements without disrupting operations. The focus is on cost-effective and immediate fixes in the initial phases, while deferring resource-intensive transitions, such as post-quantum cryptography (PQC) migration, to later phases. 
 
-- **Budgetary Constraints:** Immediate fixes, such as replacing MD5 with SHA-256 and migrating to TLS 1.3, are prioritized because they require minimal financial investment and yield significant security improvements. For example, the estimated cost for these fixes is $1,500, which includes procuring certificates and implementing software updates.
-- **Legacy Systems:** The SME's reliance on older systems influenced the phased approach. Compatibility testing and gradual rollout ensure that critical services remain operational during the migration.
+#### **Phase 1: Immediate Fixes – $1,500**
+Immediate fixes address high-priority vulnerabilities, such as replacing deprecated cryptographic primitives and upgrading protocols. These changes are impactful yet cost-efficient.
+
+1. **TLS Certificates**:
+   - Procuring TLS 1.3 certificates from a Certificate Authority (CA).
+   - Estimated cost: **$200–$500**.
+
+2. **Software Updates**:
+   - Upgrading libraries, frameworks, and dependencies to support SHA-256 and TLS 1.3.
+   - Estimated cost: **$500**, covering developer time for updates, testing, and deployment.
+
+3. **Configuration and Testing**:
+   - Configuring servers to use TLS 1.3.
+   - Conducting compatibility testing with legacy systems.
+   - Estimated cost: **$300–$500**.
+
+4. **Contingency for Minor Adjustments**:
+   - Allowance for minor debugging and rollout issues.
+   - Estimated cost: **$200**.
 
 ---
+
+#### **Phase 2: Intermediate Remediations – $3,000**
+This phase focuses on strengthening cryptographic configurations and addressing legacy systems. The tasks are moderately complex and target specific vulnerabilities in key exchanges and parameterization.
+
+1. **Upgrading Key Exchanges**:
+   - Transitioning RSA-1024 and RSA-2048 to RSA-3072 or hybrid schemes (e.g., RSA + Kyber).
+   - Estimated cost: **$1,200**, reflecting the reduced number of RSA vulnerabilities and scope of updates.
+
+2. **Enhancing Parameterization**:
+   - Upgrading bcrypt and Argon2 parameters to meet modern security standards (e.g., rounds=12, memory_cost ≥ 65536).
+   - Estimated cost: **$500–$800**, depending on the specific systems involved.
+
+3. **Compatibility Testing for Legacy Systems**:
+   - Ensuring updates work with older systems to prevent disruptions and maintaining backwards compatibility.
+   - Estimated cost: **$500**.
+
+4. **Integration Efforts**:
+   - Updating application logic and workflows to accommodate changes in cryptographic configurations.
+   - Estimated cost: **$500**.
+
+---
+
+#### **Phase 3: PQC Migration – $4,500**
+This final phase focuses on adopting post-quantum cryptographic algorithms and preparing systems for quantum-resistant security. While resource-intensive, the limited number of quantum-vulnerable primitives reduces the overall cost.
+
+1. **Algorithm Migration**:
+   - Transitioning to Kyber (key encapsulation) and Dilithium (digital signatures).
+   - Estimated cost: **$1,800**, considering fewer instances of RSA and ECC vulnerabilities.
+
+2. **End-to-End Testing**:
+   - Comprehensive testing for compatibility, performance, and correctness across all systems.
+   - Estimated cost: **$1,200**, reflecting the reduced scope of affected systems.
+
+3. **System Optimization**:
+   - Optimizing hybrid cryptographic implementations to balance security and performance.
+   - Estimated cost: **$1,000**.
+
+4. **Staff Training**:
+   - Training staff to understand and maintain post-quantum cryptographic systems.
+   - Estimated cost: **$300–$500**, depending on the number of staff involved.
+
+5. **Contingency for Advanced Troubleshooting**:
+   - Allowance for unexpected challenges in post-quantum migration, including integration issues or unforeseen vulnerabilities.
+   - Estimated cost: **$500**.
+
+---
+
+************INSERT PIE GRAPH HERE**************
 
 ### **Detailed Rollout**
 To minimize disruptions, cryptographic upgrades will be deployed incrementally across the SME's environment:

@@ -17,31 +17,37 @@ class HomePage:
         """
         self.clear_main_content()
 
+        self.text_frame = tk.Frame(self.parent_frame, bg="#2E2E2E")
+        self.text_frame.pack(side=tk.TOP)
+
+        self.image_frame = tk.Frame(self.parent_frame, bg="#2E2E2E")
+        self.image_frame.pack(fill=tk.BOTH, expand=True, side=tk.BOTTOM)
+
         tk.Label(
-            self.parent_frame,
+            self.text_frame,
             text="Welcome to Crypto Scanner",
-            font=("Courier", 16),
+            font=("Courier", 18, "bold"),
+            fg="white",
+            bg="#2E2E2E",
+        ).pack(pady=50)
+
+        tk.Label(
+            self.text_frame,
+            text="This tool helps you identify and fix cryptographic issues in your Python code.",
+            font=("Courier", 12),
             fg="white",
             bg="#2E2E2E",
         ).pack(pady=20)
 
         tk.Label(
-            self.parent_frame,
-            text="This tool helps you identify and fix cryptographic issues in your Python code.",
-            font=("Courier", 12),
-            fg="white",
-            bg="#2E2E2E",
-        ).pack(pady=10)
-
-        tk.Label(
-            self.parent_frame,
+            self.text_frame,
             text="Use the navigation panel on the left to get started.",
             font=("Courier", 12),
             fg="white",
             bg="#2E2E2E",
         ).pack(pady=10)
 
-        self.display_image("../data/assets/hand.jpg")
+        self.display_image("../data/assets/synth.png")
 
     def clear_main_content(self):
         """
@@ -58,21 +64,20 @@ class HomePage:
         """
 
         try:
-            self.parent_frame.update_idletasks()
-            frame_width  = self.parent_frame.winfo_width()
-            frame_height = self.parent_frame.winfo_height()
+            self.image_frame.update_idletasks()
+            frame_width  = self.image_frame.winfo_width()
+            frame_height = self.image_frame.winfo_height()
 
             image = Image.open(image_path)
-            if frame_width > 0 and frame_height > 0:
-                image = image.resize(
-                    (min(image.width, frame_width), min(image.height, frame_height))
-                )
+            
+            image = image.resize((frame_width, frame_height))
+            
             self.photo = ImageTk.PhotoImage(image)
-            image_label = tk.Label(self.parent_frame, image=self.photo)
+            image_label = tk.Label(self.image_frame, image=self.photo, bg="#2E2E2E")
             image_label.pack(pady=10)
         except Exception as e:
             tk.Label(
-                self.parent_frame,
+                self.image_frame,
                 text=f"Error loading image: {e}",
                 font=("Courier", 12),
                 fg="red",

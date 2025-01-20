@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox
 
 class ShowCases:
     def __init__(self, parent, db_manager):
@@ -83,3 +84,15 @@ class ShowCases:
                 command=lambda case_id=case[0]: self.load_case(case_id),
             )
             load_button.grid(row=0, column=1, padx=10)
+
+    def delete_case(self, case_id):
+        confirm = messagebox.askyesno(
+            "Confirm Clear",
+            "Are you sure you want to delete this case? This action cannot be undone."
+        )
+        if confirm:
+            self.db_manager.delete_case(case_id)
+            for widget in self.parent.winfo_children():
+                widget.destroy()
+            self.show()
+            messagebox.showinfo("Success", "Database cleared successfully!")

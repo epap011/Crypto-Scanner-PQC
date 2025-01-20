@@ -232,3 +232,11 @@ class DatabaseManager:
             print(f"Database exported to {file_path}")
         except Exception as e:
             print(f"Error exporting database: {e}")
+
+    def delete_case(self, case_id):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM cases WHERE id = ?", (case_id,))
+        cursor.execute("DELETE FROM findings WHERE case_id = ?", (case_id,))
+        conn.commit()
+        conn.close()

@@ -4,6 +4,7 @@ from gui.navigation import Navigation
 from gui.new_case_page import NewCasePage
 from gui.show_cases import ShowCases
 from gui.database_management_page import DatabaseManagementPage
+from gui.help_page import HelpPage
 
 class CryptoScannerApp:
     def __init__(self, root, analyzer, db_manager):
@@ -25,10 +26,12 @@ class CryptoScannerApp:
         self.new_case_page = NewCasePage(self.page_content)
         self.show_cases    = ShowCases(self.page_content, self.db_manager)
         self.database_management_page = DatabaseManagementPage(self.page_content, self.db_manager)
+        self.help_page     = HelpPage(self.page_content)
         
         self.navigation.add_button("Home"      , self.home_page.show)
         self.navigation.add_button("New Case"  , self.new_case_page.show)
         self.navigation.add_button("Show Cases", self.show_cases.show)
         self.navigation.add_button("DB Manager", self.database_management_page.show)
+        self.navigation.add_button("Help"      , self.help_page.show)
 
         self.navigation.activate_button("Home")

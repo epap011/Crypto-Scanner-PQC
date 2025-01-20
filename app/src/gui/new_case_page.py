@@ -212,7 +212,7 @@ class NewCasePage:
             fix_type = tree.item(selected_item, 'values')[-2]
             if fix_type == "Manual Intervention Required":
                 return
-            self.fix_selected_file(tree)
+            self.fix_selected_file(tree, is_scan_results=True)
 
         tree.bind("<Double-1>", on_double_click)
 
@@ -311,7 +311,7 @@ class NewCasePage:
             fix_type = tree.item(selected_item, 'values')[-2]
             if fix_type == "Manual Intervention Required":
                 return
-            self.fix_selected_file(tree)
+            self.fix_selected_file(tree, is_scan_results=False)
 
         tree.bind("<Double-1>", on_double_click)
 
@@ -607,15 +607,19 @@ class NewCasePage:
             'paramiko.DSSKey': ('Critical', 'Deprecated SSH key type detected.', 'Use Ed25519 or RSA with >=2048 bits.')
         }
     
-    def fix_selected_file(self, tree):
+    def fix_selected_file(self, tree, is_scan_results=True):
         selected_item = tree.selection()
         if not selected_item:
             messagebox.showerror("Error", "Please select a file to fix.")
             return
 
         selected_item = selected_item[0]
-        # Assuming `finding_id` is the first column in the TreeView data
-        finding_id, file, primitive, issue, severity, solution, fix_type, status = tree.item(selected_item, 'values')
+        # Assuming `finding_id` is the first column in the TreeView data``
+        if is_scan_results:
+            file, primitive, parameteres, issue, severity, solution, quantum_vulnerable, mosca_urgent = tree.item(selected_item, 'values')
+            finding_id = -1
+        else:
+            finding_id, file, primitive, issue, severity, solution, fix_type, status = tree.item(selected_item, 'values')
 
         if solution == "Manual Intervention Required":
             messagebox.showwarning(

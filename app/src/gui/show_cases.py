@@ -23,7 +23,6 @@ class ShowCases:
         scrollable_frame.bind("<Configure>", on_frame_configure)
 
         cases = self.db_manager.get_cases()
-        print(cases)
 
         for case in cases:
             case_frame = tk.Frame(scrollable_frame, bg="#3A3A3A", highlightbackground="#FFFFFF", highlightthickness=1)
@@ -31,7 +30,7 @@ class ShowCases:
 
             case_title = tk.Label(
                 case_frame,
-                text=case[1],
+                text="Case: " + case[1],
                 font=("Courier", 14, 'bold'),
                 fg="#FFFFFF",
                 bg="#3A3A3A",
@@ -42,7 +41,7 @@ class ShowCases:
 
             case_description = tk.Label(
                 case_frame,
-                text=case[2],
+                text="file path: " + case[2],
                 font=("Courier", 12),
                 fg="#D3D3D3",
                 bg="#3A3A3A",
@@ -53,7 +52,7 @@ class ShowCases:
 
             case_info = tk.Label(
                 case_frame,
-                text=case[3],
+                text="created at: " + case[3],
                 font=("Courier", 12),
                 fg="#D3D3D3",
                 bg="#3A3A3A",
@@ -61,23 +60,26 @@ class ShowCases:
                 padx=10,
             )
             case_info.pack(fill="x", pady=5)
+
+            button_frame = tk.Frame(case_frame, bg="#3A3A3A")
+            button_frame.pack(pady=10)
             
             delete_button = tk.Button(
-                case_frame,
+                button_frame,
                 text="Delete Case",
                 font=("Courier", 12),
                 fg="#FFFFFF",
                 bg="#FF0000",
                 command=lambda case_id=case[0]: self.delete_case(case_id),
             )
-            delete_button.pack(pady=10)
+            delete_button.grid(row=0, column=0, padx=10)
 
             load_button = tk.Button(
-                case_frame,
+                button_frame,
                 text="Load Case",
                 font=("Courier", 12),
                 fg="#FFFFFF",
                 bg="#008000",
                 command=lambda case_id=case[0]: self.load_case(case_id),
             )
-            load_button.pack(pady=10)
+            load_button.grid(row=0, column=1, padx=10)

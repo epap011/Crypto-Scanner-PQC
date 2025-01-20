@@ -96,3 +96,6 @@ class ShowCases:
                 widget.destroy()
             self.show()
             messagebox.showinfo("Success", "Database cleared successfully!")
+
+    def load_case(self, case_id):
+        messagebox.showinfo("Under Construction", "This feature is under construction.")

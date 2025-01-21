@@ -99,8 +99,13 @@ class NewCasePage:
             self.directory_entry.insert(0, folder_selected)
 
     def run_scan_and_view_results(self):
+        self.prioritized_findings = []
+        for widget in self.main_content.winfo_children():
+            widget.destroy()
+        for widget in self.statistics_panel.winfo_children():
+            widget.destroy()
+        
         self.run_scan()
-        #self.view_results()
         self.view_scan_results()
 
     def run_scan(self):
@@ -179,21 +184,13 @@ class NewCasePage:
 
         tree = ttk.Treeview(
             self.main_content,
-            columns=("File", "Primitive", "Parameters", "Issue", "Severity", "Suggestion", "Quantum Vulnerable", "MOSCA Urgent"),
+            columns=("ID", "File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Status"),
             show='headings'
         )
-        tree.column("File", width=300, anchor=tk.W)
-        tree.column("Primitive", width=150, anchor=tk.W)
-        tree.column("Parameters", width=200, anchor=tk.W)
-        tree.column("Issue", width=250, anchor=tk.W)
-        tree.column("Severity", width=100, anchor=tk.W)
-        tree.column("Suggestion", width=300, anchor=tk.W)
-        tree.column("Quantum Vulnerable", width=150, anchor=tk.W)
-        tree.column("MOSCA Urgent", width=150, anchor=tk.W)
-        tree.pack(fill=tk.BOTH, expand=True)
-
-        for col in tree["columns"]:
+        
+        for col in ("File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Status"):
             tree.heading(col, text=col, command=lambda _col=col: sort_treeview(tree, _col, False))
+        tree.pack(fill=tk.BOTH, expand=True)
 
         tree.tag_configure('Critical', background='#FFCCCC')
         tree.tag_configure('High', background='#FFD580')

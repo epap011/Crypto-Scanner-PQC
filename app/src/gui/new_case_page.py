@@ -104,14 +104,18 @@ class NewCasePage:
             widget.destroy()
         for widget in self.statistics_panel.winfo_children():
             widget.destroy()
+
+        self.directory = self.directory_entry.get()
+        if self.directory == "Select a directory to scan...":
+            messagebox.showerror("Error", "Please select a directory to scan.")
+            return
         
         self.run_scan()
         self.view_scan_results()
 
     def run_scan(self):
         self.directory = self.directory_entry.get()
-        if not self.directory:
-            messagebox.showerror("Error", "Please select a directory to scan.")
+        if self.directory == "Select a directory to scan...":
             return
 
         findings = self.analyzer.scan_directory(self.directory)

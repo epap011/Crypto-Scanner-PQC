@@ -21,6 +21,8 @@ class NewCasePage:
         self.analyzer   = CryptoAnalyzer(self.patterns, self.rules, self.deprecated_apis, mosca_params=(10, 5, 15))
         self.db_manager = DatabaseManager()
         self.fixer      = CryptoFixer()
+
+        self.prioritized_findings = []
     
     def show(self):
         self.actions_panel = tk.Frame(self.parent_panel, bg="#2E2E2E", height=150, highlightthickness=2, highlightbackground="green", highlightcolor="green")
@@ -28,11 +30,9 @@ class NewCasePage:
 
         self.statistics_panel = tk.Frame(self.parent_panel, bg="#3D3D3D", height=150)
         self.statistics_panel.pack(side=tk.BOTTOM, fill=tk.X)
-        #self.statistics_panel.pack(padx=5)
 
         self.main_content = tk.Frame(self.parent_panel, bg="#3D3D3D")
         self.main_content.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
-        #self.main_content.pack(padx=5)
 
         self.init_actions_panel()
 
@@ -99,22 +99,29 @@ class NewCasePage:
             self.directory_entry.insert(0, folder_selected)
 
     def run_scan_and_view_results(self):
+        self.prioritized_findings = []
+        for widget in self.main_content.winfo_children():
+            widget.destroy()
+        for widget in self.statistics_panel.winfo_children():
+            widget.destroy()
+
+        self.directory = self.directory_entry.get()
+        if self.directory == "Select a directory to scan...":
+            messagebox.showerror("Error", "Please select a directory to scan.")
+            return
+        
         self.run_scan()
-        #self.view_results()
         self.view_scan_results()
 
     def run_scan(self):
         self.directory = self.directory_entry.get()
-        if not self.directory:
-            messagebox.showerror("Error", "Please select a directory to scan.")
+        if self.directory == "Select a directory to scan...":
             return
 
         findings = self.analyzer.scan_directory(self.directory)
         self.prioritized_findings = self.analyzer.prioritize_findings(findings)
 
     def view_scan_results(self):
-        rows = self.prioritized_findings
-
         def search_results(event=None):
             search_term = search_entry.get().lower()
             filtered_rows = [
@@ -144,6 +151,9 @@ class NewCasePage:
             self.auto_fix_count   = sum(1 for row in filtered_rows if not row['quantum_vulnerable'])
             self.manual_fix_count = sum(1 for row in filtered_rows if row['quantum_vulnerable'])
 
+            # self.auto_fix_count   = sum(1 for row in filtered_rows if self.fixer.get_fix_options(row['Fix']) != ["Manual Fix Required"])
+            # self.manual_fix_count = sum(1 for row in filtered_rows if self.fixer.get_fix_options(row['Fix']) == ["Manual Fix Required"])
+
             self.rsa_related_count = sum(1 for row in filtered_rows if row['primitive'] == 'RSA')
             self.ecc_related_count = sum(1 for row in filtered_rows if row['primitive'] == 'ECC')
             self.aes_related_count = sum(1 for row in filtered_rows if row['primitive'].startswith('AES'))
@@ -156,16 +166,28 @@ class NewCasePage:
         def populate_tree(tree, rows):
             tree.delete(*tree.get_children())
             for row in rows:
+                fix_options = self.fixer.get_fix_options(row['primitive'])
+                if fix_options and fix_options != ["Manual Fix Required"]:
+                    fix_type = "Automatic fix exists"
+                else:
+                    fix_type = "Manual Intervention Required"
+
                 severity = row['severity']
                 tree.insert(
                     "",
                     "end",
                     values=(
-                        row['file'], row['primitive'], row['parameters'], row['issue'],
-                        row['severity'], row['suggestion'], row['quantum_vulnerable'], row['mosca_urgent']
+                        row['file'],
+                        row['primitive'],
+                        row['issue'],
+                        row['severity'],
+                        row['suggestion'],
+                        fix_type
                     ),
                     tags=(severity,)
                 )
+
+        rows = self.prioritized_findings
 
         search_frame = tk.Frame(self.main_content, bg="#3D3D3D")
         search_frame.pack(fill=tk.X, padx=250, pady=5)
@@ -179,26 +201,18 @@ class NewCasePage:
 
         tree = ttk.Treeview(
             self.main_content,
-            columns=("File", "Primitive", "Parameters", "Issue", "Severity", "Suggestion", "Quantum Vulnerable", "MOSCA Urgent"),
+            columns=("File", "Primitive", "Issue", "Severity", "Solution", "Fix"),
             show='headings'
         )
-        tree.column("File", width=300, anchor=tk.W)
-        tree.column("Primitive", width=150, anchor=tk.W)
-        tree.column("Parameters", width=200, anchor=tk.W)
-        tree.column("Issue", width=250, anchor=tk.W)
-        tree.column("Severity", width=100, anchor=tk.W)
-        tree.column("Suggestion", width=300, anchor=tk.W)
-        tree.column("Quantum Vulnerable", width=150, anchor=tk.W)
-        tree.column("MOSCA Urgent", width=150, anchor=tk.W)
+        
+        for col in ("File", "Primitive", "Issue", "Severity", "Solution", "Fix"):
+            tree.heading(col, text=col, command=lambda _col=col: sort_treeview(tree, _col, False))
         tree.pack(fill=tk.BOTH, expand=True)
 
-        for col in tree["columns"]:
-            tree.heading(col, text=col, command=lambda _col=col: sort_treeview(tree, _col, False))
-
         tree.tag_configure('Critical', background='#FFCCCC')
-        tree.tag_configure('High', background='#FFD580')
-        tree.tag_configure('Medium', background='#FFFFCC')
-        tree.tag_configure('Low', background='#CCFFCC')
+        tree.tag_configure('High'    , background='#FFD580')
+        tree.tag_configure('Medium'  , background='#FFFFCC')
+        tree.tag_configure('Low'     , background='#CCFFCC')
 
         populate_tree(tree, rows)
         update_statistics(rows)
@@ -209,109 +223,14 @@ class NewCasePage:
             if not selected_item:
                 return
             selected_item = selected_item[0]
-            fix_type = tree.item(selected_item, 'values')[-2]
+            fix_type = tree.item(selected_item, 'values')[-1]
             if fix_type == "Manual Intervention Required":
+                messagebox.showwarning(
+                    "Manual Intervention Required",
+                    f"This issue requires manual intervention."
+                )
                 return
             self.fix_selected_file(tree, is_scan_results=True)
-
-        tree.bind("<Double-1>", on_double_click)
-
-    def view_results(self):
-        rows = self.db_manager.fetch_all_findings()
-        if not rows:
-            messagebox.showinfo("No Results", "No findings to display.")
-            return
-
-        def search_results(event=None):
-            search_term = search_entry.get().lower()
-            filtered_rows = [row for row in rows if search_term in str(row[1]).lower()]
-            self.populate_tree(tree, filtered_rows)
-            update_statistics(filtered_rows)
-
-        def sort_treeview(tree, col, reverse):
-            # Retrieve data from the Treeview
-            data = [(tree.set(child, col), child) for child in tree.get_children("")]
-            # Sort data based on the column
-            data.sort(key=lambda t: t[0], reverse=reverse)
-            # Rearrange items in sorted order
-            for index, (val, child) in enumerate(data):
-                tree.move(child, '', index)
-            # Reverse the sorting for the next click
-            tree.heading(col, command=lambda: sort_treeview(tree, col, not reverse))
-
-        def update_statistics(filtered_rows):
-            self.critical_count = sum(1 for row in filtered_rows if row[5] == 'Critical')
-            self.high_count     = sum(1 for row in filtered_rows if row[5] == 'High')
-            self.medium_count   = sum(1 for row in filtered_rows if row[5] == 'Medium')
-            self.low_count      = sum(1 for row in filtered_rows if row[5] == 'Low')
-
-            self.auto_fix_count   = sum(1 for row in filtered_rows if self.fixer.get_fix_options(row[2]) != ["Manual Fix Required"])
-            self.manual_fix_count = sum(1 for row in filtered_rows if self.fixer.get_fix_options(row[2]) == ["Manual Fix Required"])
-
-            ### RSA related statistics
-            self.rsa_related_count = sum(1 for row in filtered_rows if row[2] == 'RSA')
-
-            ### ECC related statistics
-            self.ecc_related_count = sum(1 for row in filtered_rows if row[2] == 'ECC')
-
-            ### AES related statistics
-            self.aes_related_count = sum(1 for row in filtered_rows if row[2] == 'AES')
-
-            ### DES related statistics
-            self.des_related_count = sum(1 for row in filtered_rows if row[2] == 'DES')
-
-            ### MD5 related statistics
-            self.md5_related_count = sum(1 for row in filtered_rows if row[2] == 'MD5')
-
-            ### SHA-1 related statistics
-            self.sha1_related_count = sum(1 for row in filtered_rows if row[2] == 'SHA-1')
-
-            ### SHA-256 related statistics
-            self.sha256_related_count = sum(1 for row in filtered_rows if row[2] == 'SHA-256')
-
-            ### TLS related statistics
-            self.tls_related_count = sum(1 for row in filtered_rows if row[2] == 'TLS')
-        
-        search_frame = tk.Frame(self.main_content, bg="#3D3D3D")
-        search_frame.pack(fill=tk.X, padx=250, pady=5)
-
-        search_label = tk.Label(search_frame, text="Search:", font=("Courier", 12), fg="white", bg="#2E2E2E")
-        search_label.pack(side=tk.LEFT, padx=(0, 5))
-
-        search_entry = tk.Entry(search_frame, font=("Courier", 12))
-        search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
-        search_entry.bind("<KeyRelease>", search_results)
-
-        tree = ttk.Treeview(
-            self.main_content,
-            columns=("ID", "File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Status"),
-            show='headings'
-        )
-        tree.column("ID", width=3, anchor=tk.W)
-        tree.pack(fill=tk.BOTH, expand=True)
-        
-        for col in ("File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Status"):
-            tree.heading(col, text=col, command=lambda _col=col: sort_treeview(tree, _col, False))
-
-
-        tree.tag_configure('Critical', background='#FFCCCC')
-        tree.tag_configure('High'    , background='#FFD580')
-        tree.tag_configure('Medium'  , background='#FFFFCC')
-        tree.tag_configure('Low'     , background='#CCFFCC')
-
-        self.populate_tree(tree, rows)
-        update_statistics(rows)
-        self.show_statistic_pies()
-
-        def on_double_click(event):
-            selected_item = tree.selection()
-            if not selected_item:
-                return
-            selected_item = selected_item[0]
-            fix_type = tree.item(selected_item, 'values')[-2]
-            if fix_type == "Manual Intervention Required":
-                return
-            self.fix_selected_file(tree, is_scan_results=False)
 
         tree.bind("<Double-1>", on_double_click)
 
@@ -616,8 +535,8 @@ class NewCasePage:
         selected_item = selected_item[0]
         # Assuming `finding_id` is the first column in the TreeView data``
         if is_scan_results:
-            file, primitive, parameteres, issue, severity, solution, quantum_vulnerable, mosca_urgent = tree.item(selected_item, 'values')
             finding_id = -1
+            file, primitive, issue, severity, solution, fix_type = tree.item(selected_item, 'values')
         else:
             finding_id, file, primitive, issue, severity, solution, fix_type, status = tree.item(selected_item, 'values')
 

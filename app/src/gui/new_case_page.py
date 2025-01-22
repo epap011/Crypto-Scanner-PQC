@@ -13,7 +13,7 @@ import astor
 class NewCasePage:
     def __init__(self, parent_panel):
         self.parent_panel = parent_panel
-
+        self.original_code_map = {} 
         self.define_patterns()
         self.define_rules()
         self.define_deprecated_apis()
@@ -123,7 +123,22 @@ class NewCasePage:
             return
 
         findings = self.analyzer.scan_directory(self.directory)
-        self.prioritized_findings = self.analyzer.prioritize_findings(findings)
+        findings_with_mosca = self.analyzer.prioritize_findings(findings)
+        self.prioritized_findings = [
+            {**finding, 'status': 'not_fixed'}
+            for finding in findings_with_mosca
+        ]
+
+        for finding in self.prioritized_findings:
+                file_path = finding['file']
+                try:
+                    with open(file_path, 'r') as f:
+                        original_code = f.read()
+                        self.original_code_map[file_path] = original_code  # Store the original code
+                except Exception as e:
+                    # Handle errors when reading the file
+                    print(f"Failed to read file {file_path}: {e}")
+                    self.original_code_map[file_path] = None  # Use None for files that couldn't be read
 
     def view_scan_results(self):
         def search_results(event=None):
@@ -194,7 +209,8 @@ class NewCasePage:
                         row['suggestion'],
                         fix_type,
                         "True" if row['mosca_urgent'] else "False",
-                        "True" if row['quantum_vulnerable'] else "False"
+                        "True" if row['quantum_vulnerable'] else "False",
+                        row['status']
                     ),
                     tags=(severity,)
                 )
@@ -213,11 +229,11 @@ class NewCasePage:
 
         tree = ttk.Treeview(
             self.main_content,
-            columns=("File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Mosca Urgent", "Quantum Vulnerable"),
+            columns=("File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Mosca Urgent", "Quantum Vulnerable", "Status"),
             show='headings'
         )
         
-        for col in ("File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Mosca Urgent", "Quantum Vulnerable"):
+        for col in ("File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Mosca Urgent", "Quantum Vulnerable", "Status"):
             tree.heading(col, text=col, command=lambda _col=col: sort_treeview(tree, _col, False))
         tree.pack(fill=tk.BOTH, expand=True)
 
@@ -319,6 +335,15 @@ class NewCasePage:
         for item in treeview.get_children():
             treeview.delete(item)
         for row in data:
+            def debug_sample_data(data):
+                print("Sample Data:")
+                for i, item in enumerate(data):
+                    print(f"Index {i}: {item}")
+
+            if row:
+                print("Debugging a sample finding:")
+                debug_sample_data(row)
+
             # Include `finding_id` (row[0]) as part of the TreeView values
             finding_id = row[0]
             primitive = row[2]
@@ -547,7 +572,7 @@ class NewCasePage:
         selected_item = selected_item[0]
         # Assuming `finding_id` is the first column in the TreeView data``
         finding_id = -1
-        file, primitive, issue, severity, solution, fix_type, mosca_urgent, quantum_vulnerable, = tree.item(selected_item, 'values')
+        file, primitive, issue, severity, solution, fix_type, mosca_urgent, quantum_vulnerable, status = tree.item(selected_item, 'values')
         
         if solution == "Manual Intervention Required":
             messagebox.showwarning(
@@ -650,8 +675,10 @@ class NewCasePage:
                     with open(file, 'w') as f:
                         f.write(modified_code)
 
-                    # Update the status using the DatabaseManager
-                    # self.db_manager.update_finding_status(finding_id, 'fixed')
+                    for finding in self.prioritized_findings:
+                        if finding['file'] == file and finding['issue'] == issue:
+                            finding['status'] = 'fixed'  # Update local state
+                            break
 
                     # Notify the user and close the modal
                     messagebox.showinfo("Success", f"Changes saved to {file} and status updated to 'fixed'.")
@@ -664,16 +691,19 @@ class NewCasePage:
         save_button.pack(pady=20)
 
         def revert_changes():
-            original_code_content = self.db_manager.fetch_original_code(finding_id)
-            if original_code_content:
+            original_code = self.original_code_map.get(file)
+            if original_code is not None:
                 with open(file, 'w') as f:
-                    f.write(original_code_content)
+                    f.write(original_code)
                 
-                self.db_manager.update_finding_status(finding_id, 'not_fixed')
+                for finding in self.prioritized_findings:
+                    if finding['file'] == file and finding['issue'] == issue:
+                        finding['status'] = 'not_fixed'
+                        break
                 messagebox.showinfo("Reverted", f"Changes reverted to original code for {file}.")
                 modal.destroy()
             else:
-                messagebox.showerror("Error", "Original code not found in the database.")
+                messagebox.showerror("Error", "Original code not found in the session.")
 
         revert_button = tk.Button(modal, text="Revert Changes", command=revert_changes, font=("Courier", 12), bg="#FF0000", fg="white")
         revert_button.pack(pady=10)

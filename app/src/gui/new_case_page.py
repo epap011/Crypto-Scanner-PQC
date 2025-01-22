@@ -28,12 +28,12 @@ class NewCasePage:
         self.actions_panel = tk.Frame(self.parent_panel, bg="#2E2E2E", height=150, highlightthickness=2, highlightbackground="green", highlightcolor="green")
         self.actions_panel.pack(side=tk.TOP, fill=tk.X)
 
-        self.statistics_panel = tk.Frame(self.parent_panel, bg="#3D3D3D", height=150)
-        self.statistics_panel.pack(side=tk.BOTTOM, fill=tk.X)
-
         self.main_content = tk.Frame(self.parent_panel, bg="#3D3D3D")
         self.main_content.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
+        self.statistics_panel = tk.Frame(self.parent_panel, bg="#3D3D3D", height=150)
+        self.statistics_panel.pack(side=tk.BOTTOM, fill=tk.X)
+        
         self.init_actions_panel()
 
     def init_actions_panel(self):

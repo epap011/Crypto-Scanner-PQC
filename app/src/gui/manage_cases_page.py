@@ -111,6 +111,15 @@ class ManageCasesPage:
 
         case_metadata, findings = self.db_manager.fetch_case(case_id)
 
+        def debug_sample_data(data):
+            print("Sample Data:")
+            for i, item in enumerate(data):
+                print(f"Index {i}: {item}")
+
+        if findings:
+            print("Debugging a sample finding:")
+            debug_sample_data(findings[4])
+
         def search_results(event=None):
             search_term = search_entry.get().lower()
             filtered_rows = [row for row in rows if search_term in str(row[1]).lower()]
@@ -196,7 +205,7 @@ class ManageCasesPage:
 
         rows = []
         for finding in findings:
-            rows += [(finding[2], finding[3], finding[4], finding[5], finding[6], finding[7], finding[9])]
+            rows += [(finding[2], finding[3], finding[4], finding[5], finding[6], finding[7], finding[10])]
 
         self.populate_tree(tree, rows)
         update_statistics(rows)
@@ -222,6 +231,7 @@ class ManageCasesPage:
             primitive = row[1]
             issue     = row[3]
             severity  = row[4]
+            solution  = row[5]
             fix_type  = row[5]
             status    = row[6]
             fix_options = self.fixer.get_fix_options(primitive)
@@ -231,7 +241,7 @@ class ManageCasesPage:
             else:
                 fix_type = "Manual Intervention Required"
             tag = severity
-            treeview.insert("", tk.END, values=(file_path, primitive, issue, severity, fix_type, fix_options[0], status), tags=(tag,))
+            treeview.insert("", tk.END, values=(file_path, primitive, issue, severity, solution, fix_type, status), tags=(tag,))
         #treeview.tag_configure('Critical', background='#FFCCCC')
 
     def show_statistic_pies(self):

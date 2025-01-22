@@ -32,11 +32,12 @@ class NewCasePage:
 
         self.main_content = tk.Frame(self.parent_panel, bg="#3D3D3D")
         self.main_content.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
-        
+
         self.statistics_panel = tk.Frame(self.parent_panel, bg="#3D3D3D", height=150)
         self.statistics_panel.pack(side=tk.BOTTOM, fill=tk.X)
 
         self.init_actions_panel()
+        self.reset_counters()
 
     def init_actions_panel(self):
         self.directory_entry = tk.Entry(
@@ -102,6 +103,7 @@ class NewCasePage:
 
     def run_scan_and_view_results(self):
         self.prioritized_findings = []
+        self.reset_counters()
         for widget in self.main_content.winfo_children():
             widget.destroy()
         for widget in self.statistics_panel.winfo_children():
@@ -670,3 +672,8 @@ class NewCasePage:
             return
 
         self.db_manager.store_case(folder_path=self.directory, findings=self.prioritized_findings, case_name=case_name)
+
+    def reset_counters(self):
+        self.manual_fix_count = 0
+        self.auto_fix_count   = 0
+

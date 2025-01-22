@@ -195,8 +195,17 @@ class ManageCasesPage:
         tree.tag_configure('Low'     , background='#CCFFCC')
 
         rows = []
+
+        def debug_sample_data(data):
+            print("Sample Data:")
+            for i, item in enumerate(data):
+                print(f"Index {i}: {item}")
+
+        if findings:
+            print("Debugging a sample finding:")
+            debug_sample_data(findings[0])
         for finding in findings:
-            rows += [(finding[2], finding[3], finding[4], finding[5], finding[6], finding[7], findings[8], finding[9], finding[10])]
+            rows += [(finding[2], finding[3], finding[4], finding[5], finding[6], finding[7], finding[8], finding[9], finding[10])]
 
         self.populate_tree(tree, rows)
         update_statistics(rows)

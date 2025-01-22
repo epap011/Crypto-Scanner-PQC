@@ -164,6 +164,16 @@ class NewCasePage:
         def populate_tree(tree, rows):
             tree.delete(*tree.get_children())
             for row in rows:
+
+                def debug_sample_data(data):
+                    print("Sample Data:")
+                    for i, item in enumerate(data):
+                        print(f"Index {i}: {item}")
+
+                if row:
+                    print("Debugging a sample finding:")
+                    debug_sample_data(row)
+
                 fix_options = self.fixer.get_fix_options(row['primitive'])
                 if fix_options and fix_options != ["Manual Intervention Required"]:
                     fix_type = "Automatic fix exists"
@@ -182,7 +192,9 @@ class NewCasePage:
                         row['issue'],
                         row['severity'],
                         row['suggestion'],
-                        fix_type
+                        fix_type,
+                        "True" if row['mosca_urgent'] else "False",
+                        "True" if row['quantum_vulnerable'] else "False"
                     ),
                     tags=(severity,)
                 )
@@ -201,11 +213,11 @@ class NewCasePage:
 
         tree = ttk.Treeview(
             self.main_content,
-            columns=("File", "Primitive", "Issue", "Severity", "Solution", "Fix"),
+            columns=("File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Mosca Urgent", "Quantum Vulnerable"),
             show='headings'
         )
         
-        for col in ("File", "Primitive", "Issue", "Severity", "Solution", "Fix"):
+        for col in ("File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Mosca Urgent", "Quantum Vulnerable"):
             tree.heading(col, text=col, command=lambda _col=col: sort_treeview(tree, _col, False))
         tree.pack(fill=tk.BOTH, expand=True)
 
@@ -223,7 +235,7 @@ class NewCasePage:
             if not selected_item:
                 return
             selected_item = selected_item[0]
-            fix_type = tree.item(selected_item, 'values')[-1]
+            fix_type = tree.item(selected_item, 'values')[5]
             if fix_type == "Manual Intervention Required":
                 messagebox.showwarning(
                     "Manual Intervention Required",
@@ -535,7 +547,7 @@ class NewCasePage:
         selected_item = selected_item[0]
         # Assuming `finding_id` is the first column in the TreeView data``
         finding_id = -1
-        file, primitive, issue, severity, solution, fix_type = tree.item(selected_item, 'values')
+        file, primitive, issue, severity, solution, fix_type, mosca_urgent, quantum_vulnerable, = tree.item(selected_item, 'values')
         
         if solution == "Manual Intervention Required":
             messagebox.showwarning(

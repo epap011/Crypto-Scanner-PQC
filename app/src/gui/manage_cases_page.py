@@ -180,15 +180,15 @@ class ManageCasesPage:
 
         tree = ttk.Treeview(
             self.parent_panel,
-            columns=("File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Mosca Urgent", "Quantum Vulnerable", "Status"),
+            columns=("ID","File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Mosca Urgent", "Quantum Vulnerable", "Status"),
             show='headings'
         )
         tree.pack(fill=tk.BOTH, expand=True)
-        
-        for col in ("File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Mosca Urgent", "Quantum Vulnerable", "Status"):
+        for col in ("ID","File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Mosca Urgent", "Quantum Vulnerable", "Status"):
             tree.heading(col, text=col, command=lambda _col=col: sort_treeview(tree, _col, False))
         tree.pack(fill=tk.BOTH, expand=True)
 
+        tree.column("ID", width=0, stretch=tk.NO)
         tree.tag_configure('Critical', background='#FFCCCC')
         tree.tag_configure('High'    , background='#FFD580')
         tree.tag_configure('Medium'  , background='#FFFFCC')
@@ -205,7 +205,7 @@ class ManageCasesPage:
             print("Debugging a sample finding:")
             debug_sample_data(findings[0])
         for finding in findings:
-            rows += [(finding[2], finding[3], finding[4], finding[5], finding[6], finding[7], finding[8], finding[9], finding[10])]
+            rows += [(finding[0], finding[2], finding[3], finding[4], finding[5], finding[6], finding[7], finding[8], finding[9], finding[10])]
 
         self.populate_tree(tree, rows)
         update_statistics(rows)
@@ -219,7 +219,7 @@ class ManageCasesPage:
             fix_type = tree.item(selected_item, 'values')[7]
             if fix_type == "Manual Intervention Required":
                 return
-            self.fix_selected_file(tree, is_scan_results=False)
+            self.fix_selected_file(tree, tree.item(selected_item, 'values')[0])
 
         tree.bind("<Double-1>", on_double_click)
 
@@ -227,15 +227,16 @@ class ManageCasesPage:
         for item in treeview.get_children():
             treeview.delete(item)
         for row in data:
-            file_path = row[0]
-            primitive = row[1]
-            issue     = row[3]
-            severity  = row[4]
-            solution  = row[5]
-            fix_type  = row[5]
-            mosca_urgent = row[6]
-            quantum_vulnerable = row[7]           
-            status = row[8]        
+            finding_id = row[0]
+            file_path = row[1]
+            primitive = row[2]
+            issue     = row[4]
+            severity  = row[5]
+            solution  = row[6]
+            fix_type  = row[6]
+            mosca_urgent = row[7]
+            quantum_vulnerable = row[8]           
+            status = row[9]        
             
             fix_options = self.fixer.get_fix_options(primitive)
             if fix_options and fix_options != ["Manual Intervention Required"]:
@@ -255,7 +256,7 @@ class ManageCasesPage:
             else:
                 quantum_vulnerable = "False"
             tag = severity
-            treeview.insert("", tk.END, values=(file_path, primitive, issue, severity, solution, fix_type, mosca_urgent, quantum_vulnerable, status), tags=(tag,))
+            treeview.insert("", tk.END, values=(finding_id, file_path, primitive, issue, severity, solution, fix_type, mosca_urgent, quantum_vulnerable, status), tags=(tag,))
         #treeview.tag_configure('Critical', background='#FFCCCC')
 
     def show_statistic_pies(self):
@@ -327,7 +328,7 @@ class ManageCasesPage:
         canvas.draw()
         canvas.get_tk_widget().pack(side=tk.BOTTOM)
 
-    def fix_selected_file(self, tree, is_scan_results=True):
+    def fix_selected_file(self, tree, finding_id):
         selected_item = tree.selection()
         if not selected_item:
             messagebox.showerror("Error", "Please select a file to fix.")
@@ -335,7 +336,7 @@ class ManageCasesPage:
 
         selected_item = selected_item[0]
 
-        file, primitive, issue, severity, solution, fix, mosca_urgent, quantum_vulnerable, status = tree.item(selected_item, 'values')
+        finding_id, file, primitive, issue, severity, solution, fix, mosca_urgent, quantum_vulnerable, status = tree.item(selected_item, 'values')
 
         if fix == "Manual Intervention Required":
             messagebox.showwarning(
@@ -345,7 +346,7 @@ class ManageCasesPage:
             return
 
         # Pass all required arguments, including finding_id
-        self.show_fix_modal(-1, file, primitive, issue)
+        self.show_fix_modal(finding_id, file, primitive, issue)
 
     def show_fix_modal(self, finding_id, file, primitive, issue):
         modal = tk.Toplevel(self.parent_panel)

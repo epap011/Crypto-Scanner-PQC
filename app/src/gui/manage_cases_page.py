@@ -15,7 +15,9 @@ class ManageCasesPage:
         self.parent     = parent
         self.db_manager = db_manager
         self.fixer      = CryptoFixer()
-
+        self.auto_fix_count = 0
+        self.manual_fix_count = 0
+        
     def show(self):
         canvas = tk.Canvas(self.parent, bg="#3A3A3A")
         scrollable_frame = ttk.Frame(canvas)
@@ -111,14 +113,6 @@ class ManageCasesPage:
 
         case_metadata, findings = self.db_manager.fetch_case(case_id)
 
-        def debug_sample_data(data):
-            print("Sample Data:")
-            for i, item in enumerate(data):
-                print(f"Index {i}: {item}")
-
-        if findings:
-            print("Debugging a sample finding:")
-            debug_sample_data(findings[4])
 
         def search_results(event=None):
             search_term = search_entry.get().lower()
@@ -138,13 +132,10 @@ class ManageCasesPage:
             tree.heading(col, command=lambda: sort_treeview(tree, col, not reverse))
 
         def update_statistics(filtered_rows):
-            self.critical_count = sum(1 for row in filtered_rows if row[5] == 'Critical')
-            self.high_count     = sum(1 for row in filtered_rows if row[5] == 'High')
-            self.medium_count   = sum(1 for row in filtered_rows if row[5] == 'Medium')
-            self.low_count      = sum(1 for row in filtered_rows if row[5] == 'Low')
-
-            self.auto_fix_count   = sum(1 for row in filtered_rows if self.fixer.get_fix_options(row[2]) != ["Manual Fix Required"])
-            self.manual_fix_count = sum(1 for row in filtered_rows if self.fixer.get_fix_options(row[2]) == ["Manual Fix Required"])
+            self.critical_count = sum(1 for row in filtered_rows if row[4] == 'Critical')
+            self.high_count     = sum(1 for row in filtered_rows if row[4] == 'High')
+            self.medium_count   = sum(1 for row in filtered_rows if row[4] == 'Medium')
+            self.low_count      = sum(1 for row in filtered_rows if row[4] == 'Low')
 
             ### RSA related statistics
             self.rsa_related_count = sum(1 for row in filtered_rows if row[2] == 'RSA')
@@ -189,12 +180,12 @@ class ManageCasesPage:
 
         tree = ttk.Treeview(
             self.parent_panel,
-            columns=("File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Status"),
+            columns=("File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Mosca Urgent", "Quantum Vulnerable", "Status"),
             show='headings'
         )
         tree.pack(fill=tk.BOTH, expand=True)
         
-        for col in ("File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Status"):
+        for col in ("File", "Primitive", "Issue", "Severity", "Solution", "Fix", "Mosca Urgent", "Quantum Vulnerable", "Status"):
             tree.heading(col, text=col, command=lambda _col=col: sort_treeview(tree, _col, False))
         tree.pack(fill=tk.BOTH, expand=True)
 
@@ -205,7 +196,7 @@ class ManageCasesPage:
 
         rows = []
         for finding in findings:
-            rows += [(finding[2], finding[3], finding[4], finding[5], finding[6], finding[7], finding[10])]
+            rows += [(finding[2], finding[3], finding[4], finding[5], finding[6], finding[7], findings[8], finding[9], finding[10])]
 
         self.populate_tree(tree, rows)
         update_statistics(rows)
@@ -216,7 +207,7 @@ class ManageCasesPage:
             if not selected_item:
                 return
             selected_item = selected_item[0]
-            fix_type = tree.item(selected_item, 'values')[-2]
+            fix_type = tree.item(selected_item, 'values')[7]
             if fix_type == "Manual Intervention Required":
                 return
             self.fix_selected_file(tree, is_scan_results=False)
@@ -233,15 +224,29 @@ class ManageCasesPage:
             severity  = row[4]
             solution  = row[5]
             fix_type  = row[5]
-            status    = row[6]
-            fix_options = self.fixer.get_fix_options(primitive)
+            mosca_urgent = row[6]
+            quantum_vulnerable = row[7]           
+            status = row[8]        
             
-            if fix_options and fix_options != ["Manual Fix Required"]:
+            fix_options = self.fixer.get_fix_options(primitive)
+            if fix_options and fix_options != ["Manual Intervention Required"]:
                 fix_type = "Automatic fix exists"
+                self.auto_fix_count += 1
             else:
                 fix_type = "Manual Intervention Required"
+                self.manual_fix_count += 1
+
+            if mosca_urgent == 1:
+                mosca_urgent = "True"
+            else:
+                mosca_urgent = "False"
+            
+            if quantum_vulnerable == 1:
+                quantum_vulnerable = "True"
+            else:
+                quantum_vulnerable = "False"
             tag = severity
-            treeview.insert("", tk.END, values=(file_path, primitive, issue, severity, solution, fix_type, status), tags=(tag,))
+            treeview.insert("", tk.END, values=(file_path, primitive, issue, severity, solution, fix_type, mosca_urgent, quantum_vulnerable, status), tags=(tag,))
         #treeview.tag_configure('Critical', background='#FFCCCC')
 
     def show_statistic_pies(self):
@@ -321,9 +326,9 @@ class ManageCasesPage:
 
         selected_item = selected_item[0]
 
-        file, primitive, issue, severity, solution, fix, status = tree.item(selected_item, 'values')
+        file, primitive, issue, severity, solution, fix, mosca_urgent, quantum_vulnerable, status = tree.item(selected_item, 'values')
 
-        if solution == "Manual Intervention Required":
+        if fix == "Manual Intervention Required":
             messagebox.showwarning(
                 "Manual Intervention Required",
                 f"The issue in {file} with {primitive} requires manual intervention."

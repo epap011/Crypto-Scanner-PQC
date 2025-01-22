@@ -165,7 +165,7 @@ class NewCasePage:
             tree.delete(*tree.get_children())
             for row in rows:
                 fix_options = self.fixer.get_fix_options(row['primitive'])
-                if fix_options and fix_options != ["Manual Fix Required"]:
+                if fix_options and fix_options != ["Manual Intervention Required"]:
                     fix_type = "Automatic fix exists"
                     self.auto_fix_count += 1
                 else:
@@ -311,7 +311,7 @@ class NewCasePage:
             finding_id = row[0]
             primitive = row[2]
             fix_options = self.fixer.get_fix_options(primitive)
-            if fix_options and fix_options != ["Manual Fix Required"]:
+            if fix_options and fix_options != ["Manual Intervention Required"]:
                 fix_type = "Automatic fix exists"
             else:
                 fix_type = "Manual Intervention Required"

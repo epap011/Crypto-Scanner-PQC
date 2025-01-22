@@ -102,7 +102,7 @@ class CryptoFixer:
             "Argon2_WeakParams": ["Use stronger parameters: time_cost >= 2, memory_cost >= 65536, parallelism >= 2"]
         }
 
-        return options.get(primitive, ["Manual Fix Required"])
+        return options.get(primitive, ["Manual Intervention Required"])
 
     def generate_ast_changes(self, primitive, fix):
         """Generate AST changes based on the selected fix."""

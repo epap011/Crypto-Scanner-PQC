@@ -86,6 +86,7 @@ class DatabaseManager:
                 quantum_vulnerable BOOLEAN,
                 mosca_urgent BOOLEAN,
                 status TEXT DEFAULT 'not_fixed',
+                original_code TEXT,
                 FOREIGN KEY (case_id) REFERENCES cases(id)
             )
         """)
@@ -93,18 +94,20 @@ class DatabaseManager:
         # Save findings associated with this case
         for finding in findings:
             parameters = finding.get('parameters', "")
+            original_code = finding.get('original_code', "")  # Get the original code if available
             try:
                 cursor.execute("""
                     INSERT INTO findings 
-                    (case_id, file, primitive, parameters, issue, severity, suggestion, quantum_vulnerable, mosca_urgent, status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (case_id, file, primitive, parameters, issue, severity, suggestion, quantum_vulnerable, mosca_urgent, status, original_code)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     case_id, finding['file'], finding['primitive'], parameters,
                     finding['issue'], finding['severity'], finding['suggestion'],
-                    finding['quantum_vulnerable'], finding['mosca_urgent'], 'not_fixed'
+                    finding['quantum_vulnerable'], finding['mosca_urgent'], finding.get('status', 'not_fixed'), original_code
                 ))
             except sqlite3.IntegrityError:
                 logging.warning(f"Duplicate finding detected: {finding}")
+
 
         conn.commit()
         conn.close()

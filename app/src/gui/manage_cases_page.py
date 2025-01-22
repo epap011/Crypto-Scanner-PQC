@@ -112,7 +112,10 @@ class ManageCasesPage:
         print(f"Loading case with ID: {case_id}")
 
         case_metadata, findings = self.db_manager.fetch_case(case_id)
-
+        self.findings = findings
+        
+        print(f"Case Metadata: {case_metadata}")
+        print(f"Findings: {findings}") 
 
         def search_results(event=None):
             search_term = search_entry.get().lower()
@@ -453,7 +456,10 @@ class ManageCasesPage:
         save_button.pack(pady=20)
 
         def revert_changes():
-            original_code_content = self.db_manager.fetch_original_code(finding_id)
+            for finding in self.findings:
+                if finding[0] == int(finding_id):  # Compare finding ID
+                    original_code_content = finding[11]  # The `original_code` field
+                    break
             if original_code_content:
                 with open(file, 'w') as f:
                     f.write(original_code_content)

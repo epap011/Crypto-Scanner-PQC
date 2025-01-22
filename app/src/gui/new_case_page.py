@@ -124,12 +124,8 @@ class NewCasePage:
 
         findings = self.analyzer.scan_directory(self.directory)
         findings_with_mosca = self.analyzer.prioritize_findings(findings)
-        self.prioritized_findings = [
-            {**finding, 'status': 'not_fixed'}
-            for finding in findings_with_mosca
-        ]
 
-        for finding in self.prioritized_findings:
+        for finding in findings_with_mosca:
                 file_path = finding['file']
                 try:
                     with open(file_path, 'r') as f:
@@ -140,7 +136,25 @@ class NewCasePage:
                     print(f"Failed to read file {file_path}: {e}")
                     self.original_code_map[file_path] = None  # Use None for files that couldn't be read
 
+        self.prioritized_findings = [
+            {
+                **finding,
+                'status': 'not_fixed',
+                'original_code': self.original_code_map.get(finding['file'], None)  # Include original code
+            }
+            for finding in findings_with_mosca
+        ]
+
     def view_scan_results(self):
+
+        # Clear the main content area to avoid overlapping views
+        for widget in self.main_content.winfo_children():
+            widget.destroy()
+        # Clear the statistics panel if needed
+        for widget in self.statistics_panel.winfo_children():
+            widget.destroy()
+
+
         def search_results(event=None):
             search_term = search_entry.get().lower()
             filtered_rows = [
@@ -679,7 +693,7 @@ class NewCasePage:
                         if finding['file'] == file and finding['issue'] == issue:
                             finding['status'] = 'fixed'  # Update local state
                             break
-
+                    self.view_scan_results()
                     # Notify the user and close the modal
                     messagebox.showinfo("Success", f"Changes saved to {file} and status updated to 'fixed'.")
                     modal.destroy()

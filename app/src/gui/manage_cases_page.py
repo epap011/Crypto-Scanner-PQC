@@ -107,8 +107,6 @@ class ManageCasesPage:
             messagebox.showinfo("Success", "Database cleared successfully!")
 
     def load_case(self, case_id):
-        messagebox.showinfo("Under Construction", "This feature is under construction.")
-
         print(f"Loading case with ID: {case_id}")
 
         case_metadata, findings = self.db_manager.fetch_case(case_id)

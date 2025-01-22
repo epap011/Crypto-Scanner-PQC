@@ -23,7 +23,9 @@ class NewCasePage:
         self.fixer      = CryptoFixer()
 
         self.prioritized_findings = []
-    
+        self.auto_fix_count = 0
+        self.manual_fix_count = 0
+
     def show(self):
         self.actions_panel = tk.Frame(self.parent_panel, bg="#2E2E2E", height=150, highlightthickness=2, highlightbackground="green", highlightcolor="green")
         self.actions_panel.pack(side=tk.TOP, fill=tk.X)
@@ -148,12 +150,6 @@ class NewCasePage:
             self.medium_count   = sum(1 for row in filtered_rows if row['severity'] == 'Medium')
             self.low_count      = sum(1 for row in filtered_rows if row['severity'] == 'Low')
 
-            self.auto_fix_count   = sum(1 for row in filtered_rows if not row['quantum_vulnerable'])
-            self.manual_fix_count = sum(1 for row in filtered_rows if row['quantum_vulnerable'])
-
-            # self.auto_fix_count   = sum(1 for row in filtered_rows if self.fixer.get_fix_options(row['Fix']) != ["Manual Fix Required"])
-            # self.manual_fix_count = sum(1 for row in filtered_rows if self.fixer.get_fix_options(row['Fix']) == ["Manual Fix Required"])
-
             self.rsa_related_count = sum(1 for row in filtered_rows if row['primitive'] == 'RSA')
             self.ecc_related_count = sum(1 for row in filtered_rows if row['primitive'] == 'ECC')
             self.aes_related_count = sum(1 for row in filtered_rows if row['primitive'].startswith('AES'))
@@ -169,8 +165,10 @@ class NewCasePage:
                 fix_options = self.fixer.get_fix_options(row['primitive'])
                 if fix_options and fix_options != ["Manual Fix Required"]:
                     fix_type = "Automatic fix exists"
+                    self.auto_fix_count += 1
                 else:
                     fix_type = "Manual Intervention Required"
+                    self.manual_fix_count += 1
 
                 severity = row['severity']
                 tree.insert(

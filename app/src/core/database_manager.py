@@ -119,16 +119,16 @@ class DatabaseManager:
         conn.close()
         return rows
 
-    def fetch_all_findings(self):
+    def fetch_case(self, case_id):
+        'fetch case metadata and findings'
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT id, file, primitive, parameters, issue, severity, suggestion, quantum_vulnerable, mosca_urgent, status
-            FROM findings
-        """)
-        rows = cursor.fetchall()
+        cursor.execute("SELECT * FROM cases WHERE id = ?", (case_id,))
+        case = cursor.fetchone()
+        cursor.execute("SELECT * FROM findings WHERE case_id = ?", (case_id,))
+        findings = cursor.fetchall()
         conn.close()
-        return rows
+        return case, findings
 
     def save_case_to_txt(self, case):
         file_path = filedialog.asksaveasfilename(

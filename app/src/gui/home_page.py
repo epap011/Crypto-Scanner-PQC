@@ -10,6 +10,7 @@ class HomePage:
         """
         self.parent_frame = parent_frame
         self.photo = None
+        self.image_path = "../data/assets/synth.png"
 
     def show(self):
         """
@@ -41,13 +42,13 @@ class HomePage:
 
         tk.Label(
             self.text_frame,
-            text="Use the navigation panel on the left to get started.",
+            text="Select 'New Case' to start a new analysis, or 'Manage Cases' to view previous cases.",
             font=("Courier", 12),
             fg="white",
             bg="#2E2E2E",
         ).pack(pady=10)
 
-        self.display_image("../data/assets/synth.png")
+        self.display_image()
 
     def clear_main_content(self):
         """
@@ -56,7 +57,7 @@ class HomePage:
         for widget in self.parent_frame.winfo_children():
             widget.destroy()
 
-    def display_image(self, image_path):
+    def display_image(self):
         """
         Attempts to load and display an image on the home page.
 
@@ -68,7 +69,7 @@ class HomePage:
             frame_width  = self.image_frame.winfo_width()
             frame_height = self.image_frame.winfo_height()
 
-            image = Image.open(image_path)
+            image = Image.open(self.image_path)
             
             image = image.resize((frame_width, frame_height))
             

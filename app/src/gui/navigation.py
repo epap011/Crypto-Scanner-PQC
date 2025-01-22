@@ -17,6 +17,16 @@ class Navigation:
             bg="#1F1F1F"
         )
         title_label.pack(pady=20, padx=10)
+
+        #put status online in the bottom of the navigation panel
+        status_label = tk.Label(
+            self.navigation_panel,
+            text="Status: Online",
+            font=("Courier", 12),
+            fg="#00FF41",
+            bg="#1F1F1F"
+        )
+        status_label.pack(side=tk.BOTTOM, pady=20, padx=10)
     
     def add_button(self, text, command):
         button = tk.Button(

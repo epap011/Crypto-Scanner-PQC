@@ -12,7 +12,7 @@ class CryptoScannerApp:
         self.analyzer   = analyzer
         self.db_manager = db_manager
 
-        self.root.title("Cryptographic Scanner")
+        self.root.title("Crypto Scanner")
         self.root.geometry("1280x700")
 
         self.navigation_panel = tk.Frame(self.root, bg="#1F1F1F", width=300, highlightthickness=2, highlightbackground="green", highlightcolor="green")
@@ -34,4 +34,20 @@ class CryptoScannerApp:
         self.navigation.add_button("DB Manager"  , self.database_management_page.show)
         self.navigation.add_button("Help"        , self.help_page.show)
 
+        self.last_width  = self.root.winfo_width()
+        self.last_height = self.root.winfo_height()
+
         self.navigation.activate_button("Home")
+        
+        #self.root.bind("<Configure>", self.on_resize)
+    
+    #resize event is broken
+    def on_resize(self, event):
+        current_width  = event.width
+        current_height = event.height
+
+        if current_width != self.last_width or current_height != self.last_height:
+            #print(f"Window resized to {current_width}x{current_height}")
+            self.last_width  = current_width
+            self.last_height = current_height
+            #self.home_page.display_image()

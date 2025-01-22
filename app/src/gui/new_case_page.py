@@ -30,12 +30,12 @@ class NewCasePage:
         self.actions_panel = tk.Frame(self.parent_panel, bg="#2E2E2E", height=150, highlightthickness=2, highlightbackground="green", highlightcolor="green")
         self.actions_panel.pack(side=tk.TOP, fill=tk.X)
 
+        self.statistics_panel = tk.Frame(self.parent_panel, bg="#3D3D3D", height=150)
+        self.statistics_panel.pack(side=tk.BOTTOM, fill=tk.X)
+
         self.main_content = tk.Frame(self.parent_panel, bg="#3D3D3D")
         self.main_content.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
-        self.statistics_panel = tk.Frame(self.parent_panel, bg="#3D3D3D", height=150)
-        self.statistics_panel.pack(side=tk.BOTTOM, fill=tk.X)
-        
         self.init_actions_panel()
 
     def init_actions_panel(self):
@@ -228,7 +228,7 @@ class NewCasePage:
                     f"This issue requires manual intervention."
                 )
                 return
-            self.fix_selected_file(tree, is_scan_results=True)
+            self.fix_selected_file(tree)
 
         tree.bind("<Double-1>", on_double_click)
 
@@ -524,7 +524,7 @@ class NewCasePage:
             'paramiko.DSSKey': ('Critical', 'Deprecated SSH key type detected.', 'Use Ed25519 or RSA with >=2048 bits.')
         }
     
-    def fix_selected_file(self, tree, is_scan_results=True):
+    def fix_selected_file(self, tree):
         selected_item = tree.selection()
         if not selected_item:
             messagebox.showerror("Error", "Please select a file to fix.")
@@ -532,12 +532,9 @@ class NewCasePage:
 
         selected_item = selected_item[0]
         # Assuming `finding_id` is the first column in the TreeView data``
-        if is_scan_results:
-            finding_id = -1
-            file, primitive, issue, severity, solution, fix_type = tree.item(selected_item, 'values')
-        else:
-            finding_id, file, primitive, issue, severity, solution, fix_type, status = tree.item(selected_item, 'values')
-
+        finding_id = -1
+        file, primitive, issue, severity, solution, fix_type = tree.item(selected_item, 'values')
+        
         if solution == "Manual Intervention Required":
             messagebox.showwarning(
                 "Manual Intervention Required",
@@ -640,7 +637,7 @@ class NewCasePage:
                         f.write(modified_code)
 
                     # Update the status using the DatabaseManager
-                    self.db_manager.update_finding_status(finding_id, 'fixed')
+                    # self.db_manager.update_finding_status(finding_id, 'fixed')
 
                     # Notify the user and close the modal
                     messagebox.showinfo("Success", f"Changes saved to {file} and status updated to 'fixed'.")

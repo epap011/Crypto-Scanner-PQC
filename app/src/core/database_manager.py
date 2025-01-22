@@ -174,16 +174,39 @@ class DatabaseManager:
                 writer.writerows(rows)
             messagebox.showinfo("Export Complete", f"Findings exported to {file_path}.")
 
-    def update_finding_status(self, finding_id, status):
+    def update_finding_status(self, case_id, finding_id, status):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
+
+        # Debug: Check if the record exists
+        cursor.execute("""
+            SELECT * FROM findings
+            WHERE id = ? AND case_id = ?
+        """, (finding_id, case_id))
+        record = cursor.fetchone()
+
+        if record:
+            print(f"Record found: {record}")
+        else:
+            print(f"No record found with case_id={case_id} and finding_id={finding_id}")
+
+        # Proceed with the update
         cursor.execute("""
             UPDATE findings
             SET status = ?
-            WHERE id = ?
-        """, (status, finding_id))
+            WHERE id = ? AND case_id = ?
+        """, (status, finding_id, case_id))
+
+        # Debug: Check how many rows were updated
+        rows_updated = cursor.rowcount
+        if rows_updated > 0:
+            print(f"Successfully updated {rows_updated} record(s) with case_id={case_id} and finding_id={finding_id}. New status: {status}")
+        else:
+            print(f"Failed to update. No records match case_id={case_id} and finding_id={finding_id}.")
+
         conn.commit()
         conn.close()
+
 
     def save_fix_history(self, finding_id, original_code, file):
         conn = sqlite3.connect(self.db_name)

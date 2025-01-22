@@ -222,7 +222,7 @@ class ManageCasesPage:
             fix_type = tree.item(selected_item, 'values')[7]
             if fix_type == "Manual Intervention Required":
                 return
-            self.fix_selected_file(tree, tree.item(selected_item, 'values')[0])
+            self.fix_selected_file(tree, case_id, tree.item(selected_item, 'values')[0])
 
         tree.bind("<Double-1>", on_double_click)
 
@@ -331,7 +331,7 @@ class ManageCasesPage:
         canvas.draw()
         canvas.get_tk_widget().pack(side=tk.BOTTOM)
 
-    def fix_selected_file(self, tree, finding_id):
+    def fix_selected_file(self, tree, case_id, finding_id):
         selected_item = tree.selection()
         if not selected_item:
             messagebox.showerror("Error", "Please select a file to fix.")
@@ -349,9 +349,9 @@ class ManageCasesPage:
             return
 
         # Pass all required arguments, including finding_id
-        self.show_fix_modal(finding_id, file, primitive, issue)
+        self.show_fix_modal(case_id, finding_id, file, primitive, issue)
 
-    def show_fix_modal(self, finding_id, file, primitive, issue):
+    def show_fix_modal(self, case_id, finding_id, file, primitive, issue):
         modal = tk.Toplevel(self.parent_panel)
         modal.title("Fix Cryptographic Issue")
         modal.geometry("800x900")
@@ -443,7 +443,7 @@ class ManageCasesPage:
                         f.write(modified_code)
 
                     # Update the status using the DatabaseManager
-                    self.db_manager.update_finding_status(finding_id, 'fixed')
+                    self.db_manager.update_finding_status(case_id, finding_id, 'fixed')
 
                     # Notify the user and close the modal
                     messagebox.showinfo("Success", f"Changes saved to {file} and status updated to 'fixed'.")
@@ -464,7 +464,7 @@ class ManageCasesPage:
                 with open(file, 'w') as f:
                     f.write(original_code_content)
                 
-                self.db_manager.update_finding_status(finding_id, 'not_fixed')
+                self.db_manager.update_finding_status(case_id, finding_id, 'not_fixed')
                 messagebox.showinfo("Reverted", f"Changes reverted to original code for {file}.")
                 modal.destroy()
             else:

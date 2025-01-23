@@ -38,7 +38,7 @@ class CryptoScannerApp:
         self.last_height = self.root.winfo_height()
 
         self.navigation.activate_button("Home")
-        
+        self.navigation.activate_button("Home")
         #self.root.bind("<Configure>", self.on_resize)
     
     #resize event is broken

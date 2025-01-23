@@ -96,6 +96,14 @@ class ManageCasesPage:
             )
             load_button.grid(row=0, column=1, padx=10)
 
+    def refresh_treeview(self, treeview, case_id):
+        findings = self.db_manager.fetch_case(case_id)[1]  # Fetch updated findings
+        rows = []
+        for finding in findings:
+            rows += [(finding[0], finding[2], finding[3], finding[4], finding[5], finding[6], finding[7], finding[8], finding[9], finding[10])]
+        self.populate_tree(treeview, rows)
+
+
     def delete_case(self, case_id):
         confirm = messagebox.askyesno(
             "Confirm Clear",
@@ -135,10 +143,10 @@ class ManageCasesPage:
             tree.heading(col, command=lambda: sort_treeview(tree, col, not reverse))
 
         def update_statistics(filtered_rows):
-            self.critical_count = sum(1 for row in filtered_rows if row[4] == 'Critical')
-            self.high_count     = sum(1 for row in filtered_rows if row[4] == 'High')
-            self.medium_count   = sum(1 for row in filtered_rows if row[4] == 'Medium')
-            self.low_count      = sum(1 for row in filtered_rows if row[4] == 'Low')
+            self.critical_count = sum(1 for row in filtered_rows if row[5] == 'Critical')
+            self.high_count     = sum(1 for row in filtered_rows if row[5] == 'High')
+            self.medium_count   = sum(1 for row in filtered_rows if row[5] == 'Medium')
+            self.low_count      = sum(1 for row in filtered_rows if row[5] == 'Low')
 
             ### RSA related statistics
             self.rsa_related_count = sum(1 for row in filtered_rows if row[2] == 'RSA')
@@ -196,6 +204,7 @@ class ManageCasesPage:
         tree.tag_configure('High'    , background='#FFD580')
         tree.tag_configure('Medium'  , background='#FFFFCC')
         tree.tag_configure('Low'     , background='#CCFFCC')
+        self.treeview = tree
 
         rows = []
 
@@ -444,6 +453,7 @@ class ManageCasesPage:
 
                     # Update the status using the DatabaseManager
                     self.db_manager.update_finding_status(case_id, finding_id, 'fixed')
+                    self.refresh_treeview(self.treeview, case_id) 
 
                     # Notify the user and close the modal
                     messagebox.showinfo("Success", f"Changes saved to {file} and status updated to 'fixed'.")
@@ -465,6 +475,7 @@ class ManageCasesPage:
                     f.write(original_code_content)
                 
                 self.db_manager.update_finding_status(case_id, finding_id, 'not_fixed')
+                self.refresh_treeview(self.treeview, case_id) 
                 messagebox.showinfo("Reverted", f"Changes reverted to original code for {file}.")
                 modal.destroy()
             else:

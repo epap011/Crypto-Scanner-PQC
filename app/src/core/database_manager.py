@@ -5,14 +5,15 @@ from tkinter import filedialog, messagebox
 import datetime
 import os
 import logging
+import shutil
 
 class DatabaseManager:
     def __init__(self, db_name="case_database.db"):        
-        path = "../data/databases/"
-        self.db_name = os.path.join(path, db_name)
+        self.database_path = "../data/databases/"
+        self.db_name = os.path.join(self.database_path, db_name)
 
-        if not os.path.exists(path):
-            os.makedirs(path)
+        if not os.path.exists(self.database_path):
+            os.makedirs(self.database_path)
 
         if os.path.exists(self.db_name):
             return
@@ -258,6 +259,22 @@ class DatabaseManager:
             print(f"Database exported to {file_path}")
         except Exception as e:
             print(f"Error exporting database: {e}")
+
+    def import_database(self, file_path):
+        try:
+            if not os.path.isfile(file_path):
+                raise FileNotFoundError(f"The file {file_path} does not exist.")
+
+            new_db_name = "case_database.db"
+            destination_path = os.path.join(os.path.dirname(self.database_path), new_db_name)
+
+            shutil.copyfile(file_path, destination_path)
+
+            self.database_path = destination_path
+
+            print(f"Database successfully imported from {file_path}")
+        except Exception as e:
+            print(f"Error importing database: {e}")
 
     def delete_case(self, case_id):
         conn = sqlite3.connect(self.db_name)

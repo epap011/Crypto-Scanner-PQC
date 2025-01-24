@@ -49,6 +49,17 @@ class DatabaseManagementPage:
         )
         export_button.grid(row=0, column=1, padx=10)
 
+        import_button = tk.Button(
+            button_frame,
+            text="Import Database",
+            command=self.import_database,
+            font=("Courier", 12),
+            bg="green",
+            fg="white",
+            width=15
+        )
+        import_button.grid(row=0, column=2, padx=10)
+
     def clear_database(self):
         confirm = messagebox.askyesno(
             "Confirm Clear",
@@ -68,3 +79,13 @@ class DatabaseManagementPage:
         if file_path:
             self.db_manager.export_database(file_path)
             messagebox.showinfo("Success", f"Database exported to {file_path}!")
+
+    def import_database(self):
+        """Imports a database from a user-specified location."""
+        file_path = filedialog.askopenfilename(
+            filetypes=[("Database Files", "*.db"), ("All Files", "*.*")],
+            title="Import Database"
+        )
+        if file_path:
+            self.db_manager.import_database(file_path)
+            messagebox.showinfo("Success", f"Database imported from {file_path}!")

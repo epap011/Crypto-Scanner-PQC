@@ -121,10 +121,7 @@ class ManageCasesPage:
 
         case_metadata, findings = self.db_manager.fetch_case(case_id)
         self.findings = findings
-        
-        print(f"Case Metadata: {case_metadata}")
-        print(f"Findings: {findings}") 
-
+    
         def search_results(event=None):
             search_term = search_entry.get().lower()
             filtered_rows = [row for row in rows if search_term in str(row[1]).lower()]
@@ -208,14 +205,14 @@ class ManageCasesPage:
 
         rows = []
 
-        def debug_sample_data(data):
-            print("Sample Data:")
-            for i, item in enumerate(data):
-                print(f"Index {i}: {item}")
+        # def debug_sample_data(data):
+        #     print("Sample Data:")
+        #     for i, item in enumerate(data):
+        #         print(f"Index {i}: {item}")
 
-        if findings:
-            print("Debugging a sample finding:")
-            debug_sample_data(findings[0])
+        # if findings:
+        #     print("Debugging a sample finding:")
+        #     debug_sample_data(findings[0])
         for finding in findings:
             rows += [(finding[0], finding[2], finding[3], finding[4], finding[5], finding[6], finding[7], finding[8], finding[9], finding[10])]
 

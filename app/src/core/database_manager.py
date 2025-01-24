@@ -186,24 +186,12 @@ class DatabaseManager:
         """, (finding_id, case_id))
         record = cursor.fetchone()
 
-        if record:
-            print(f"Record found: {record}")
-        else:
-            print(f"No record found with case_id={case_id} and finding_id={finding_id}")
-
         # Proceed with the update
         cursor.execute("""
             UPDATE findings
             SET status = ?
             WHERE id = ? AND case_id = ?
         """, (status, finding_id, case_id))
-
-        # Debug: Check how many rows were updated
-        rows_updated = cursor.rowcount
-        if rows_updated > 0:
-            print(f"Successfully updated {rows_updated} record(s) with case_id={case_id} and finding_id={finding_id}. New status: {status}")
-        else:
-            print(f"Failed to update. No records match case_id={case_id} and finding_id={finding_id}.")
 
         conn.commit()
         conn.close()

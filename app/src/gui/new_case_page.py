@@ -194,14 +194,14 @@ class NewCasePage:
             tree.delete(*tree.get_children())
             for row in rows:
 
-                def debug_sample_data(data):
-                    print("Sample Data:")
-                    for i, item in enumerate(data):
-                        print(f"Index {i}: {item}")
+                # def debug_sample_data(data):
+                #     print("Sample Data:")
+                #     for i, item in enumerate(data):
+                #         print(f"Index {i}: {item}")
 
-                if row:
-                    print("Debugging a sample finding:")
-                    debug_sample_data(row)
+                # if row:
+                #     print("Debugging a sample finding:")
+                #     debug_sample_data(row)
 
                 fix_options = self.fixer.get_fix_options(row['primitive'])
                 if fix_options and fix_options != ["Manual Intervention Required"]:
@@ -349,14 +349,14 @@ class NewCasePage:
         for item in treeview.get_children():
             treeview.delete(item)
         for row in data:
-            def debug_sample_data(data):
-                print("Sample Data:")
-                for i, item in enumerate(data):
-                    print(f"Index {i}: {item}")
+            # def debug_sample_data(data):
+            #     print("Sample Data:")
+            #     for i, item in enumerate(data):
+            #         print(f"Index {i}: {item}")
 
-            if row:
-                print("Debugging a sample finding:")
-                debug_sample_data(row)
+            # if row:
+            #     print("Debugging a sample finding:")
+            #     debug_sample_data(row)
 
             # Include `finding_id` (row[0]) as part of the TreeView values
             finding_id = row[0]

@@ -18,7 +18,6 @@ class Navigation:
         )
         title_label.pack(pady=20, padx=10)
 
-        #put status online in the bottom of the navigation panel
         status_label = tk.Label(
             self.navigation_panel,
             text="Status: Online",

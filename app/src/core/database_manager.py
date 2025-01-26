@@ -95,7 +95,7 @@ class DatabaseManager:
         # Save findings associated with this case
         for finding in findings:
             parameters = finding.get('parameters', "")
-            original_code = finding.get('original_code', "")  # Get the original code if available
+            original_code = finding.get('original_code', "")
             try:
                 cursor.execute("""
                     INSERT INTO findings 

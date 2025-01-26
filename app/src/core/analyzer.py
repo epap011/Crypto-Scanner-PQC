@@ -30,7 +30,7 @@ class CryptoAnalyzer:
                                 if target.id.lower() in ['key_size', 'rsa_key_size', 'ecc_key_size']:
                                     key_size = node.value.value
                                     if isinstance(key_size, int):
-                                        if key_size < 2048:  # Example for RSA quantum vulnerability
+                                        if key_size < 2048:
                                             results.append({
                                                 'file': file_path,
                                                 'primitive': 'RSA',
@@ -105,7 +105,7 @@ class CryptoAnalyzer:
                                         })
 
 
-                    # Detect concatenated values (e.g., IV or Key)
+                    # Detect concatenated values
                     if isinstance(node, ast.Assign):
                         for target in node.targets:
                             if isinstance(target, ast.Name) and isinstance(node.value, ast.BinOp):

@@ -117,7 +117,7 @@ class ManageCasesPage:
             messagebox.showinfo("Success", "Database cleared successfully!")
 
     def load_case(self, case_id):
-        print(f"Loading case with ID: {case_id}")
+        #print(f"Loading case with ID: {case_id}")
 
         case_metadata, findings = self.db_manager.fetch_case(case_id)
         self.findings = findings
@@ -320,7 +320,7 @@ class ManageCasesPage:
         plt.rcParams.update(params)
 
         # Create the Matplotlib figure for the bar chart
-        fig = Figure(figsize=(4, 2), dpi=100, facecolor="#3D3D3D")  # Smaller figure size
+        fig = Figure(figsize=(4, 2), dpi=100, facecolor="#3D3D3D")
         ax = fig.add_subplot(111)
 
         # Plotting the bar chart with custom colors

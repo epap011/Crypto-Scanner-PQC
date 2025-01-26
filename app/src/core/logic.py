@@ -22,13 +22,13 @@ class CryptoFixer:
                 source_code = file.read()
                 tree = ast.parse(source_code, filename=file_path)
 
-            print("Original Code:")
-            print(source_code)
+            #print("Original Code:")
+            #print(source_code)
 
             for change in changes:
                 tree = change(tree)  # Apply each change to the AST
-                print("After Change:")
-                print(astor.to_source(tree))  # Debug transformed AST to source code
+                #print("After Change:")
+                #print(astor.to_source(tree))
 
             # Fix missing locations in AST
             tree = ast.fix_missing_locations(tree)
@@ -49,7 +49,7 @@ class CryptoFixer:
 
     def is_fixable(self, primitive):
         """Check if the issue is fixable programmatically."""
-        fixable_primitives = {"AES", "DES", "3DES", "RSA"}  # Extendable
+        fixable_primitives = {"AES", "DES", "3DES", "RSA"}
         return primitive in fixable_primitives
 
     def get_fix_options(self, primitive):
@@ -398,7 +398,7 @@ class CryptoFixer:
                                 isinstance(node.func, ast.Attribute)
                                 and isinstance(node.func.value, ast.Name)
                                 and node.func.value.id == "hashlib"
-                                and node.func.attr in ["md5", "sha1", "sha224"]  # Extended list
+                                and node.func.attr in ["md5", "sha1", "sha224"]
                             ):
                                 node.func.attr = "sha256"
 

@@ -8,15 +8,15 @@ patterns = {
     # Symmetric Ciphers
     'DES': r'\bDES\b',
     '3DES': r'\b3DES\b',
-    '3DES_1Key': r'\b3DES\b.*?key=(1)',  # Example pattern for 1-key
-    '3DES_2Keys': r'\b3DES\b.*?key=(2)',  # Example pattern for 2-keys
-    '3DES_3Keys': r'\b3DES\b.*?key=(3)',  # Example pattern for 3-keys
+    '3DES_1Key': r'\b3DES\b.*?key=(1)',
+    '3DES_2Keys': r'\b3DES\b.*?key=(2)',
+    '3DES_3Keys': r'\b3DES\b.*?key=(3)',
     'AES': r'\bAES\b.*?mode=([A-Z]+)',
     'AES-128': r'\bAES\b.*?key_size=(128)',
     'AES-192': r'\bAES\b.*?key_size=(192)',
-    'AES-256': r'\bAES\b.*?key_size=(256)',  # Explicitly mark AES-256 as secure
-    'Blowfish': r'\bBlowfish\b.*?key_size=(\d+)',  # New pattern for Blowfish
-    'RC4': r'\bRC4\b',  # New pattern for RC4
+    'AES-256': r'\bAES\b.*?key_size=(256)',
+    'Blowfish': r'\bBlowfish\b.*?key_size=(\d+)',
+    'RC4': r'\bRC4\b',
 
     # Asymmetric Ciphers
     'RSA': r'\bRSA\b.*?\((.*?)\)',
@@ -25,19 +25,19 @@ patterns = {
     'ECDH': r'\bECDH\b',
     'ECDSA': r'\bECDSA\b',
     'Diffie-Hellman': r'\bDH\b|\bDiffieHellman\b',
-    'DH_WeakParams': r'\bDH\b.*?modulus_size=(\d+)|generator=(1|p-1)',  # New pattern for weak DH parameters
+    'DH_WeakParams': r'\bDH\b.*?modulus_size=(\d+)|generator=(1|p-1)',
 
     # Hash Functions
     'MD5': r'\bMD5\b',
     'SHA1': r'\bSHA-1\b',
-    'SHA-224': r'\bSHA-224\b',  # New pattern for SHA-224
+    'SHA-224': r'\bSHA-224\b',
     'SHA-256': r'\bSHA-256\b',
-    'Whirlpool': r'\bWhirlpool\b',  # New pattern for Whirlpool
+    'Whirlpool': r'\bWhirlpool\b',
 
     # Weak Modes
     'ECB_Mode': r'\bAES\b.*?mode=ECB|\bDES\b.*?mode=ECB|\b3DES\b.*?mode=ECB',
     'CBC_Mode': r'\bAES\b.*?mode=CBC|\bDES\b.*?mode=CBC|\b3DES\b.*?mode=CBC',
-    'Static_IV': r'IV=(0x[a-fA-F0-9]+)',  # New pattern for static IV detection
+    'Static_IV': r'IV=(0x[a-fA-F0-9]+)',
 
     # Deprecated Protocols
     'TLS': r'\bTLSv1\\.\d\b|\bSSLv3\b',
@@ -45,7 +45,7 @@ patterns = {
     'IPsec': r'\bIKEv1\b',
 
     # Other Vulnerabilities
-    'Hardcoded Key': r'([a-fA-F0-9]{32,})|([\"\']{5,})',  # Detect long hex or string constants
+    'Hardcoded Key': r'([a-fA-F0-9]{32,})|([\"\']{5,})',
     'Weak PRNG': r'\brandom\\.(random|randint|choice|shuffle|uniform)\b',
     'Cryptography Library': r'\bfrom\s+cryptography|import\s+cryptography\b',
 

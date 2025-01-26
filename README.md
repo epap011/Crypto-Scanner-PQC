@@ -8,6 +8,8 @@ Building on concepts introduced in Part 1, the project emphasizes cryptographic 
 
 ## Installation
 
+### Using Python (Local Installation)
+
 1. Clone the repository:
 ```bash
 git clone https://github.com/your-username/cryptographic-inventory-tool.git
@@ -22,6 +24,17 @@ pip install -r requirements.txt
 ```bash
 cd app/src
 python main.py
+```
+
+### Using Docker
+1. Build the Docker image:
+```bash
+docker build -t crypto-scanner .
+```
+
+2. Run the Docker container:
+```bash
+docker run crypto-scanner
 ```
 
 ## Contributions

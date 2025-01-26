@@ -4,7 +4,7 @@ This project involves developing a Cryptographic Inventory Tool (Crypto Scanner)
 
 Building on concepts introduced in Part 1, the project emphasizes cryptographic agility and post-quantum cryptography (PQC) readiness. Using Python as the target programming language, the tool combines pattern-based analysis and semantic inspection to ensure comprehensive detection of vulnerabilities.
 
-![alt text](https://github.com/epap011/Transition-Framework-for-PQC/blob/main/assets/images/crypto_scanner_app.png?raw=true)
+![alt text](https://github.com/epap011/Crypto-Scanner-PQC/blob/main/assets/images/crypto_scanner_app.png?raw=true)
 
 ## Installation
 
